@@ -4,7 +4,8 @@ from .base import BaseRepository, QueryBuilder
 
 class GuestRepository(BaseRepository):
     table = "guests"
-    columns = ("first_name", "last_name", "email", "phone", "address", "nationality", "id_number", "vip", "notes")
+    columns = ("first_name", "last_name", "email", "phone", "address", "nationality", "id_type", "id_number",
+               "date_of_birth", "gender", "vip", "notes", "marketing_consent", "privacy_accepted_at", "anonymized_at")
     select_sql = (
         "SELECT t.*, (SELECT COUNT(*) FROM reservations r WHERE r.guest_id = t.id AND r.status IN ('checked_in','checked_out')) AS stays,"
         " (SELECT MAX(r.check_in) FROM reservations r WHERE r.guest_id = t.id) AS last_stay,"

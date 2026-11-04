@@ -1,82 +1,104 @@
-# Hotel Manager — Reservations & Inventory
+# Hotel Management System
 
-A complete hotel property-management system with a web GUI. It covers the front desk, reservations, guests, rooms, housekeeping, inventory, billing and reports.
+A complete property-management system for a hotel in Egypt. There is a separate portal for each role:
 
-It has **no dependencies.** It runs on Python 3.9+ using only the standard library: an HTTP server and SQLite. The GUI is a single-page app in plain JavaScript with no build step.
+- administrators
+- front-desk staff
+- chefs
+- housekeepers
+- guests (a public booking website in English and Arabic, plus a guest account)
 
-## Run it
+It needs nothing except **Python 3.9+**: no packages to install and no database server. The data lives in one SQLite file.
+
+## Quick start
 
 ```bash
-python3 run.py            # then open http://localhost:8000
+python3 run.py            # http://localhost:8000  (with a demo hotel)
 python3 run.py --open     # also opens your browser
 ```
 
-| User | Password | Role |
-|------|----------|------|
-| `admin` | `admin123` | Administrator |
-| `frontdesk` | `front123` | Staff (demo data only) |
+| Portal | URL | Demo login |
+|---|---|---|
+| Guest website (book online, English/Arabic) | http://localhost:8000/ | — |
+| Guest account | http://localhost:8000/account | `amelia.hart@example.com` / `GuestPass123` |
+| Administration (controls everything) | http://localhost:8000/admin | `admin` / `AdminPass123` |
+| Front desk | http://localhost:8000/staff | `frontdesk` / `FrontDesk123` |
+| Kitchen (chef) | http://localhost:8000/kitchen | `chef` / `ChefPass123` |
+| Housekeeping (maids) | http://localhost:8000/housekeeping | `maid` / `MaidPass123` (also `maid2`) |
 
-**Change these passwords** in Settings before real use.
+Everyone signs in at `/login` and is sent to their own portal automatically.
 
-Options: `--host 0.0.0.0` (serve on your network), `--port 9000`, `--db path/to/hotel.db`, `--no-demo` (start with an empty hotel that has only the admin user). The same options can be set with the environment variables `HOTEL_HOST`, `HOTEL_PORT` and `HOTEL_DB`. All data lives in one SQLite file (default `data/hotel.db`), so to back up, copy that file.
+**For real use** start with an empty hotel:
 
-## Features
+```bash
+python3 run.py --no-demo
+```
+
+It prints a one-time admin password; you must change it at first sign-in. Then read [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/SECURITY.md](docs/SECURITY.md).
+
+## What each portal does
+
+**Administrator** has everything below, plus:
+- Users, including one-time passwords, unlocking accounts, signing users out everywhere and resetting 2FA.
+- The **roles & permissions matrix**, which decides what staff, chefs and housekeepers may do.
+- Hotel, tax and security settings.
+- Audit log and e-mail outbox.
+- Night audit, backups, rates, seasons and promo codes.
+- Purchasing, refunds and voids.
 
 **Front desk**
-- Dashboard: occupancy, in-house guests, arrivals and departures with one-click check-in/out, payments today and this month, room-status summary, low-stock alerts, upcoming arrivals and an activity feed.
-- Room calendar (tape chart): rooms × days, colour-coded bookings. Click an empty day to book that room.
-- New reservation wizard: pick an existing guest or create one inline, then search live availability by dates, guest count and room type. Choose a room, set the rate and source, and take an optional deposit.
-- Double-booking is impossible. Every write runs in a serialized transaction, and stays are checked as `[check_in, check_out)`, so back-to-back stays are allowed.
-- Reservation lifecycle: booked → checked in → checked out, or cancelled (optional fee) or no-show (optional fee). You can edit dates, guests and rate, change room, extend a stay, and handle an early departure (the stay is shortened and billed correctly).
-- Check-in rules: no future arrivals, and no rooms that are under maintenance or still occupied. A dirty room needs explicit confirmation.
-- Check-out requires a settled balance. The final payment can be taken in the check-out dialog, and the room is set to *dirty* automatically.
+- Dashboard: arrivals, departures, occupancy and payments.
+- Room calendar.
+- Booking wizard: live availability and pricing, corporate rates, promo codes and deposits.
+- Group bookings.
+- Check-in, with the passport/ID details Egypt requires for guest registration.
+- Check-out, which issues a numbered tax invoice and sends the room to housekeeping.
+- Early departure, room moves and folio charges (minibar items come out of stock).
+- Payments, cashier shifts with cash count, corporate accounts (city ledger) and invoices.
+- Guest profiles, the police guest register, guest requests, lost & found and review moderation.
 
-**Billing**
-- Guest folio: room nights, posted charges (inventory items or free-text services and discounts), configurable tax, payments and refunds, and the balance.
-- Printable invoice (print or save as PDF).
+**Chef**
+- Live order board (new → cooking → ready → delivered). Starting an order deducts its recipe ingredients from stock, and delivering it charges the guest's bill.
+- Menu & recipes, with dishes marked as unavailable when needed.
+- Kitchen stock, supply requests to the store, and reporting issues.
 
-**Guests**: profiles with VIP flag, ID/passport, notes, stay history and lifetime value.
+**Housekeeper**
+- "My rooms" task cards, plus unassigned rooms they can take.
+- Start → mark clean.
+- Report a maintenance issue, log found items, request supplies, see completed work.
 
-**Rooms & housekeeping**: room types with rates and capacity, rooms per floor, and a housekeeping board (clean / dirty / maintenance with notes).
+**Guest**
+- On the website: search dates, see prices including 12% service and 14% VAT, use promo codes, and book online. The room is assigned automatically.
+- In their account:
+  - See and cancel bookings, within the free-cancellation window.
+  - View their bill and download the tax invoice.
+  - During the stay, order room service and send requests (towels, cleaning, maintenance, wake-up).
+  - Review the stay afterwards.
+  - Edit their profile, download their data, or delete their account.
 
-**Inventory**
-- Items with SKU, category, unit, reorder level, cost, sale price and supplier.
-- Receive stock (with weighted-average costing), issue stock, and stock counts/adjustments (a reason is required).
-- Full movement ledger and low-stock alerts.
-- Posting a chargeable item (e.g. minibar) to a guest folio **deducts it from stock automatically**. Voiding the charge returns it to stock. Stock can never go negative.
-- Supplier management.
+## Built for Egypt
 
-**Reports**: occupancy, ADR, RevPAR, room and extras revenue, payments by method, booking sources, top-selling items, internal consumption, inventory valuation and a daily chart with a table. CSV export for reservations, guests, items, movements and the daily report.
+- **Currency and taxes.** Prices are in EGP. Every bill and invoice adds the **12% service charge** first, then **14% VAT** on subtotal + service. An optional city tax can be added.
+- **Tax invoices.** Numbered in sequence (`INV-2026-000001`), in Arabic and English, with your tax registration and commercial register numbers. A VAT report and CSV export cover the monthly return.
+- **Guest registration.** Nationality and ID/passport number are required before check-in. A daily **guest register** for the authorities lists foreign guests by default, with Egyptian nationals as an option, and can be printed or exported to CSV.
+- **Pricing.** A Friday/Saturday weekend uplift, seasonal rates with minimum stays, promo codes and corporate discounts.
+- **Data protection.** Built to Egypt's Personal Data Protection Law (151/2020): consent, data export, erasure and a privacy notice at `/privacy`.
 
-**Administration**
-- Users with roles. *Admin* manages rooms, rates, users, settings and deletions; *staff* run daily operations.
-- Hotel settings (name, address, currency, tax rate, check-in/out times).
-- Password change and a full activity/audit log.
-
-**Security**
-- PBKDF2 password hashing.
-- HttpOnly + SameSite=Strict session cookies.
-- Login lockout after 5 failed attempts.
-- Server-side validation on every field.
-- Parameterised SQL.
-- Protection against path traversal and CSV formula injection.
+> Integration with the Egyptian Tax Authority's e-invoice / e-receipt system needs your ETA credentials and isn't connected yet. The invoice data is stored in a structure ready for it. Online card payments (e.g. Paymob) and Booking.com/Expedia connections likewise need accounts with those companies. Payments are recorded at the desk today.
 
 ## Tests
 
 ```bash
-python3 -m unittest discover tests
+cd tests && python3 -m unittest -v
 ```
 
-The tests start the real server on a temporary database. They exercise the full API: authentication and roles, booking and overlap rules, the check-in/out lifecycle, folio and tax math, inventory movements and stock deduction, reports and exports.
+There are 55 tests. They start the real server on a temporary database and cover:
+- security: sign-in, lockout, sessions, CSRF, cross-site requests, the full role matrix, guests' data isolation, 2FA, password reset, privacy erasure, path traversal, SQL injection, CSV injection;
+- every workflow across departments;
+- unit tests for validation, the tax maths and the TOTP test vectors.
 
-## Project layout
+## Documentation
 
-```
-run.py              launcher
-hotel/db.py         schema + demo data
-hotel/api.py        business logic & JSON API
-hotel/server.py     HTTP server (API + static GUI)
-hotel/auth.py       password hashing
-static/             GUI (index.html, app.js, styles.css)
-tests/test_api.py   end-to-end API tests
-```
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organised and how to add features.
+- [docs/SECURITY.md](docs/SECURITY.md): roles, protections and the deployment checklist.
+- [docs/OPERATIONS.md](docs/OPERATIONS.md): going live, HTTPS, e-mail, backups, daily routines.

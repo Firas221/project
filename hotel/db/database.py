@@ -36,9 +36,9 @@ class Database:
             yield conn
             if conn.in_transaction:
                 conn.execute("COMMIT")
-        except BaseException:
+        except BaseException as exc:
             if conn.in_transaction:
-                conn.execute("ROLLBACK")
+                conn.execute("COMMIT" if getattr(exc, "commit_changes", False) else "ROLLBACK")
             raise
         finally:
             conn.close()

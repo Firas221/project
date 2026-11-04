@@ -9,18 +9,35 @@ from ..repositories import Repositories
 log = logging.getLogger("hotel.seed")
 
 DEFAULT_SETTINGS = {
-    "hotel_name": "Harborview Hotel",
-    "tagline": "Seaside comfort in the heart of the bay",
-    "address": "1 Harbor Road, Bayside",
-    "phone": "+1 555 0100",
-    "email": "frontdesk@harborview.example",
-    "currency": "$",
-    "tax_rate": "10",
+    # identity
+    "hotel_name": "Nile Harbor Hotel",
+    "hotel_name_ar": "فندق نايل هاربور",
+    "tagline": "Riverside comfort in the heart of Cairo",
+    "address": "12 Corniche El Nil, Garden City, Cairo, Egypt",
+    "phone": "+20 2 2790 0000",
+    "email": "frontdesk@nileharbor.example",
+    # Egyptian tax & legal (Law 67/2016 VAT; hotel service charge)
+    "currency": "EGP",
+    "service_charge_rate": "12",
+    "vat_rate": "14",
+    "city_tax_rate": "0",
+    "tax_registration_number": "000-000-000",
+    "commercial_register": "",
+    "tourism_license": "",
+    # operations
     "check_in_time": "14:00",
-    "check_out_time": "11:00",
-    "free_cancellation_days": "1",
+    "check_out_time": "12:00",
+    "business_date": "",
+    "require_id_at_checkin": "1",
+    "cash_requires_shift": "1",
+    "weekend_days": "4,5",
+    "weekend_adjust_pct": "15",
+    # online booking (guest website)
     "online_booking_enabled": "1",
+    "free_cancellation_days": "2",
     "max_online_nights": "30",
+    # security
+    "require_2fa_for_admins": "0",
 }
 
 DEMO_PASSWORDS = {
@@ -76,16 +93,17 @@ class DemoData:
         self._menu()
         self._reservations()
         self._operations()
+        self._commercial()
         log.info("Demo data loaded")
 
     # ------------------------------------------------------------------
     def _users(self) -> dict:
         people = [
-            ("admin", "Alex Morgan", Role.ADMIN, "alex.morgan@harborview.example"),
-            ("frontdesk", "Sam Rivera", Role.STAFF, "sam.rivera@harborview.example"),
-            ("chef", "Marco Bellini", Role.CHEF, "marco.bellini@harborview.example"),
-            ("maid", "Rosa Delgado", Role.HOUSEKEEPER, "rosa.delgado@harborview.example"),
-            ("maid2", "Lina Haddad", Role.HOUSEKEEPER, "lina.haddad@harborview.example"),
+            ("admin", "Alex Morgan", Role.ADMIN, "alex.morgan@nileharbor.example"),
+            ("frontdesk", "Sam Rivera", Role.STAFF, "sam.rivera@nileharbor.example"),
+            ("chef", "Marco Bellini", Role.CHEF, "marco.bellini@nileharbor.example"),
+            ("maid", "Rosa Delgado", Role.HOUSEKEEPER, "rosa.delgado@nileharbor.example"),
+            ("maid2", "Lina Haddad", Role.HOUSEKEEPER, "lina.haddad@nileharbor.example"),
         ]
         ids = {}
         for username, name, role, email in people:
@@ -96,14 +114,14 @@ class DemoData:
 
     def _rooms(self):
         types = [
-            ("Standard Single", "Cozy room with a single bed, ideal for solo travellers", 89, 1, "Single", 16,
+            ("Standard Single", "Cozy room with a single bed, ideal for solo travellers", 2200, 1, "Single", 16,
              "Wi-Fi, TV, Work desk, Rain shower"),
-            ("Standard Double", "Comfortable room with a queen bed", 119, 2, "Queen", 22, "Wi-Fi, TV, Mini-bar, Safe"),
-            ("Deluxe King", "Spacious king room with harbour view", 159, 2, "King", 30,
-             "Wi-Fi, Smart TV, Mini-bar, Bathtub, Harbour view"),
-            ("Family Suite", "Two bedrooms and a living area", 229, 4, "King + 2 Twin", 48,
+            ("Standard Double", "Comfortable room with a queen bed", 2900, 2, "Queen", 22, "Wi-Fi, TV, Mini-bar, Safe"),
+            ("Deluxe King", "Spacious king room with Nile view", 3900, 2, "King", 30,
+             "Wi-Fi, Smart TV, Mini-bar, Bathtub, Nile view"),
+            ("Family Suite", "Two bedrooms and a living area", 5600, 4, "King + 2 Twin", 48,
              "Wi-Fi, 2 TVs, Kitchenette, Mini-bar, Sofa bed"),
-            ("Presidential Suite", "Top-floor suite with a private terrace", 450, 4, "King", 85,
+            ("Presidential Suite", "Top-floor suite with a private terrace", 11000, 4, "King", 85,
              "Wi-Fi, Terrace, Jacuzzi, Butler service, Lounge access"),
         ]
         for name, desc, rate, cap, bed, size, amen in types:
@@ -129,11 +147,15 @@ class DemoData:
             ("Hugo", "Martin", "hugo.martin@example.com", "+33 555 0118", "Rue Lepic 8", "French", "P8901234", 0),
             ("Isla", "Brown", "isla.b@example.com", "+44 555 0119", "Baker St 221", "British", "D9012345", 0),
             ("Jonas", "Weber", "jonas.w@example.com", "+49 555 0120", "Hauptstr 10", "German", "P0123456", 0),
+            ("Omar", "Farouk", "omar.farouk@example.com", "+20 100 555 0121", "Zamalek, Cairo", "Egyptian", "29001011234567", 0),
+            ("Nour", "Hassan", "nour.hassan@example.com", "+20 122 555 0122", "Smouha, Alexandria", "Egyptian", "29505051234567", 1),
         ]
         ids = []
         for first, last, email, phone, addr, nat, idn, vip in guests:
             ids.append(self.r.guests.insert(first_name=first, last_name=last, email=email, phone=phone, address=addr,
-                                            nationality=nat, id_number=idn, vip=vip))
+                                            nationality=nat, id_number=idn, vip=vip,
+                                            id_type="national_id" if nat == "Egyptian" else "passport",
+                                            privacy_accepted_at=self.d(-30) + " 10:00:00"))
         # Amelia has an online account (client portal).
         self.r.users.insert(username="amelia.hart@example.com", email="amelia.hart@example.com",
                             full_name="Amelia Hart", role=Role.GUEST, guest_id=ids[0],
@@ -149,28 +171,28 @@ class DemoData:
             self.r.suppliers.insert(name=name, contact=contact, phone=phone, email=email)
         items = [
             # sku, name, category, department, unit, qty, reorder, cost, price, chargeable, supplier
-            ("MB-WATER", "Mineral Water 500ml", "Minibar", "minibar", "bottle", 120, 40, 0.40, 3.00, 1, 1),
-            ("MB-COLA", "Cola 330ml", "Minibar", "minibar", "can", 80, 30, 0.55, 4.00, 1, 1),
-            ("MB-BEER", "Craft Beer 330ml", "Minibar", "minibar", "bottle", 18, 24, 1.50, 7.00, 1, 1),
-            ("MB-CHIPS", "Potato Chips", "Minibar", "minibar", "bag", 45, 20, 0.70, 4.50, 1, 1),
-            ("MB-CHOC", "Dark Chocolate Bar", "Minibar", "minibar", "bar", 9, 15, 0.90, 5.00, 1, 1),
-            ("KT-EGGS", "Eggs", "Dairy & Eggs", "kitchen", "pcs", 240, 60, 0.25, 0, 0, 1),
-            ("KT-BREAD", "Sourdough Bread", "Bakery", "kitchen", "loaf", 14, 6, 2.40, 0, 0, 1),
-            ("KT-BEEF", "Beef Patty 180g", "Meat", "kitchen", "pcs", 30, 12, 2.10, 0, 0, 1),
-            ("KT-PASTA", "Spaghetti", "Dry goods", "kitchen", "kg", 12, 4, 1.80, 0, 0, 1),
-            ("KT-TOMSC", "Tomato Sauce", "Dry goods", "kitchen", "kg", 8, 3, 3.20, 0, 0, 1),
-            ("KT-SALMN", "Salmon Fillet", "Fish", "kitchen", "pcs", 10, 8, 5.50, 0, 0, 1),
-            ("KT-LETTC", "Lettuce", "Produce", "kitchen", "head", 16, 6, 0.90, 0, 0, 1),
-            ("KT-COFFE", "Coffee Beans", "Beverages", "kitchen", "kg", 5, 2, 14.00, 0, 0, 1),
-            ("AM-SHAMP", "Shampoo 30ml", "Amenities", "housekeeping", "bottle", 300, 100, 0.25, 0, 0, 2),
-            ("AM-SOAP", "Soap Bar", "Amenities", "housekeeping", "bar", 260, 100, 0.20, 0, 0, 2),
-            ("AM-TOOTH", "Dental Kit", "Amenities", "housekeeping", "kit", 60, 50, 0.45, 2.00, 1, 2),
-            ("CL-DETER", "Multi-surface Cleaner 5L", "Cleaning", "housekeeping", "can", 6, 4, 12.00, 0, 0, 2),
-            ("CL-BAGS", "Trash Bags (roll)", "Cleaning", "housekeeping", "roll", 3, 10, 3.50, 0, 0, 2),
-            ("LN-TOWEL", "Bath Towel", "Linen", "housekeeping", "pcs", 180, 80, 6.50, 0, 0, 3),
-            ("LN-SHEET", "Bed Sheet Set (King)", "Linen", "housekeeping", "set", 70, 40, 18.00, 0, 0, 3),
-            ("LN-ROBE", "Bathrobe", "Linen", "housekeeping", "pcs", 25, 10, 22.00, 45.00, 1, 3),
-            ("MT-BULB", "LED Bulb E27", "Electrical", "maintenance", "pcs", 40, 15, 2.50, 0, 0, 2),
+            ("MB-WATER", "Mineral Water 500ml", "Minibar", "minibar", "bottle", 120, 40, 8, 25, 1, 1),
+            ("MB-COLA", "Cola 330ml", "Minibar", "minibar", "can", 80, 30, 14, 40, 1, 1),
+            ("MB-BEER", "Craft Beer 330ml", "Minibar", "minibar", "bottle", 18, 24, 45, 120, 1, 1),
+            ("MB-CHIPS", "Potato Chips", "Minibar", "minibar", "bag", 45, 20, 18, 45, 1, 1),
+            ("MB-CHOC", "Dark Chocolate Bar", "Minibar", "minibar", "bar", 9, 15, 25, 60, 1, 1),
+            ("KT-EGGS", "Eggs", "Dairy & Eggs", "kitchen", "pcs", 240, 60, 5, 0, 0, 1),
+            ("KT-BREAD", "Sourdough Bread", "Bakery", "kitchen", "loaf", 14, 6, 35, 0, 0, 1),
+            ("KT-BEEF", "Beef Patty 180g", "Meat", "kitchen", "pcs", 30, 12, 95, 0, 0, 1),
+            ("KT-PASTA", "Spaghetti", "Dry goods", "kitchen", "kg", 12, 4, 45, 0, 0, 1),
+            ("KT-TOMSC", "Tomato Sauce", "Dry goods", "kitchen", "kg", 8, 3, 70, 0, 0, 1),
+            ("KT-SALMN", "Salmon Fillet", "Fish", "kitchen", "pcs", 10, 8, 220, 0, 0, 1),
+            ("KT-LETTC", "Lettuce", "Produce", "kitchen", "head", 16, 6, 15, 0, 0, 1),
+            ("KT-COFFE", "Coffee Beans", "Beverages", "kitchen", "kg", 5, 2, 650, 0, 0, 1),
+            ("AM-SHAMP", "Shampoo 30ml", "Amenities", "housekeeping", "bottle", 300, 100, 6, 0, 0, 2),
+            ("AM-SOAP", "Soap Bar", "Amenities", "housekeeping", "bar", 260, 100, 4, 0, 0, 2),
+            ("AM-TOOTH", "Dental Kit", "Amenities", "housekeeping", "kit", 60, 50, 12, 40, 1, 2),
+            ("CL-DETER", "Multi-surface Cleaner 5L", "Cleaning", "housekeeping", "can", 6, 4, 320, 0, 0, 2),
+            ("CL-BAGS", "Trash Bags (roll)", "Cleaning", "housekeeping", "roll", 3, 10, 60, 0, 0, 2),
+            ("LN-TOWEL", "Bath Towel", "Linen", "housekeeping", "pcs", 180, 80, 180, 0, 0, 3),
+            ("LN-SHEET", "Bed Sheet Set (King)", "Linen", "housekeeping", "set", 70, 40, 650, 0, 0, 3),
+            ("LN-ROBE", "Bathrobe", "Linen", "housekeeping", "pcs", 25, 10, 700, 1200, 1, 3),
+            ("MT-BULB", "LED Bulb E27", "Electrical", "maintenance", "pcs", 40, 15, 45, 0, 0, 2),
         ]
         self.item_ids = {}
         admin = self.users["admin"]
@@ -183,16 +205,16 @@ class DemoData:
 
     def _menu(self):
         menu = [
-            ("Full English Breakfast", "Eggs, toast, beef sausage, tomato", "Breakfast", 18.0, 15,
+            ("Full English Breakfast", "Eggs, toast, beef sausage, foul and tomato", "Breakfast", 450.0, 15,
              [("KT-EGGS", 2), ("KT-BREAD", 0.2)]),
-            ("Classic Burger & Fries", "180g beef patty, lettuce, house sauce", "Mains", 21.0, 20,
+            ("Classic Burger & Fries", "180g beef patty, lettuce, house sauce", "Mains", 520.0, 20,
              [("KT-BEEF", 1), ("KT-BREAD", 0.15), ("KT-LETTC", 0.1)]),
-            ("Spaghetti Pomodoro", "Fresh tomato sauce, basil, parmesan", "Mains", 17.0, 15,
+            ("Spaghetti Pomodoro", "Fresh tomato sauce, basil, parmesan", "Mains", 380.0, 15,
              [("KT-PASTA", 0.15), ("KT-TOMSC", 0.12)]),
-            ("Grilled Salmon", "With seasonal greens", "Mains", 29.0, 25, [("KT-SALMN", 1), ("KT-LETTC", 0.2)]),
-            ("Caesar Salad", "Romaine, croutons, parmesan", "Starters", 13.0, 10, [("KT-LETTC", 0.5), ("KT-BREAD", 0.05)]),
-            ("Espresso", "Double shot", "Drinks", 4.0, 3, [("KT-COFFE", 0.018)]),
-            ("Fresh Orange Juice", "Freshly squeezed", "Drinks", 6.0, 5, []),
+            ("Grilled Salmon", "With seasonal greens", "Mains", 750.0, 25, [("KT-SALMN", 1), ("KT-LETTC", 0.2)]),
+            ("Caesar Salad", "Romaine, croutons, parmesan", "Starters", 300.0, 10, [("KT-LETTC", 0.5), ("KT-BREAD", 0.05)]),
+            ("Espresso", "Double shot", "Drinks", 90.0, 3, [("KT-COFFE", 0.018)]),
+            ("Fresh Orange Juice", "Freshly squeezed", "Drinks", 120.0, 5, []),
         ]
         for name, desc, cat, price, prep, ingredients in menu:
             mid = self.r.menu.insert(name=name, description=desc, category=cat, price=price, prep_minutes=prep)
@@ -229,14 +251,14 @@ class DemoData:
             self.res_ids[code] = rid
             if status == "checked_out":
                 self.r.charges.insert(reservation_id=rid, description="Breakfast Buffet", category="Food & Beverage",
-                                      quantity=2, unit_price=18, amount=36, created_by=admin)
-                total = round(((co - ci) * rate[room] + 36) * 1.10, 2)
+                                      quantity=2, unit_price=450, amount=900, created_by=admin)
+                total = round(((co - ci) * rate[room] + 900) * 1.12 * 1.14, 2)
                 self.r.payments.insert(reservation_id=rid, amount=total, method="card", reference="POS-" + code[-4:],
                                        created_by=admin)
-        self.r.payments.insert(reservation_id=self.res_ids["RHV1001"], amount=200, method="card", reference="Deposit",
+        self.r.payments.insert(reservation_id=self.res_ids["RHV1001"], amount=5000, method="card", reference="Deposit",
                                created_by=admin)
         self.r.reviews.insert(reservation_id=self.res_ids["RHV1011"], rating=5, published=1,
-                              comment="Wonderful stay, the harbour view was stunning and the staff were lovely.",
+                              comment="Wonderful stay, the Nile view was stunning and the staff were lovely.",
                               reply="Thank you Amelia, we can't wait to welcome you back!")
         self.r.reviews.insert(reservation_id=self.res_ids["RHV1008"], rating=4, published=1,
                               comment="Great breakfast and very clean rooms. Parking was a little tight.")
@@ -259,11 +281,26 @@ class DemoData:
                                   priority="low", reported_by=staff)
         self.r.guest_requests.insert(reservation_id=self.res_ids["RHV1001"], kind="amenity",
                                      message="Could we have two extra pillows please?")
-        oid = self.r.orders.insert(code="OR1001", reservation_id=self.res_ids["RHV1002"], status="pending", total=25.0,
+        oid = self.r.orders.insert(code="OR1001", reservation_id=self.res_ids["RHV1002"], status="pending", total=610.0,
                                    placed_via="guest", notes="No onions please")
-        self.r.orders.add_line(oid, 2, "Classic Burger & Fries", 1, 21.0)
-        self.r.orders.add_line(oid, 6, "Espresso", 1, 4.0)
+        self.r.orders.add_line(oid, 2, "Classic Burger & Fries", 1, 520.0)
+        self.r.orders.add_line(oid, 6, "Espresso", 1, 90.0)
         self.r.lost_found.insert(room_id=self.room_ids["106"], description="Black phone charger", found_by=maid)
         req = self.r.stock_requests.insert(code="SR1001", department="kitchen", requested_by=chef,
                                            notes="For tomorrow's breakfast service")
         self.r.stock_requests.add_line(req, self.item_ids["KT-EGGS"], 60)
+
+    def _commercial(self):
+        self.r.companies.insert(name="Delta Petroleum Services", tax_number="512-345-678", contact="Hany Saleh",
+                                email="travel@deltapetro.example", phone="+20 2 2555 0300", address="New Cairo",
+                                discount_pct=15, credit_limit=150000)
+        self.r.companies.insert(name="Pyramids Tours", tax_number="398-112-004", contact="Mona Adel",
+                                email="ops@pyramidstours.example", phone="+20 2 3377 0400", address="Giza",
+                                discount_pct=10, credit_limit=80000)
+        year = self.today.year
+        self.r.seasons.insert(name="Winter high season", start_date=f"{year}-12-20", end_date=f"{year + 1}-01-07",
+                              adjust_pct=25, min_nights=2)
+        self.r.seasons.insert(name="Summer low season", start_date=f"{year}-07-01", end_date=f"{year}-08-31",
+                              adjust_pct=-15, min_nights=1)
+        self.r.promos.insert(code="WELCOME10", description="10% off direct online bookings", discount_pct=10,
+                             valid_from=self.d(-30), valid_to=self.d(180), online_only=1)

@@ -5,3 +5,4 @@ __pycache__/
 *.db-shm
 data/
 *.zip
+deploy/hotel.env

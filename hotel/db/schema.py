@@ -356,6 +356,9 @@ CREATE TABLE reviews (
 );
 """
 
+from .schema_v2 import MIGRATION_2  # noqa: E402
+
 MIGRATIONS = [
     (1, "initial schema", MIGRATION_1),
+    (2, "commercial, compliance and 2FA", MIGRATION_2),
 ]

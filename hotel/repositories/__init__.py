@@ -1,6 +1,9 @@
 """Repository registry: one lazily-created instance per repository per unit of work."""
 from functools import cached_property
 
+from .finance import (AuditDayRepository, ChallengeRepository, CompanyRepository, InvoiceRepository,
+                      LedgerRepository, OutboxRepository, PasswordResetRepository, PromoRepository,
+                      SeasonRepository, ShiftRepository)
 from .guests import GuestRepository
 from .identity import AuditRepository, RoleRepository, SessionRepository, SettingsRepository, UserRepository
 from .inventory import (ItemRepository, MovementRepository, PurchaseOrderRepository, StockRequestRepository,
@@ -44,3 +47,15 @@ class Repositories:
     guest_requests = cached_property(lambda self: GuestRequestRepository(self.conn))
     lost_found = cached_property(lambda self: LostFoundRepository(self.conn))
     reviews = cached_property(lambda self: ReviewRepository(self.conn))
+    # commercial & finance
+    companies = cached_property(lambda self: CompanyRepository(self.conn))
+    ledger = cached_property(lambda self: LedgerRepository(self.conn))
+    seasons = cached_property(lambda self: SeasonRepository(self.conn))
+    promos = cached_property(lambda self: PromoRepository(self.conn))
+    shifts = cached_property(lambda self: ShiftRepository(self.conn))
+    invoices = cached_property(lambda self: InvoiceRepository(self.conn))
+    audit_days = cached_property(lambda self: AuditDayRepository(self.conn))
+    # security & messaging
+    password_resets = cached_property(lambda self: PasswordResetRepository(self.conn))
+    challenges = cached_property(lambda self: ChallengeRepository(self.conn))
+    outbox = cached_property(lambda self: OutboxRepository(self.conn))

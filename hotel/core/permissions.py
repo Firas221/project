@@ -170,6 +170,12 @@ class Principal:
     guest_id: Optional[int] = None
     session_id: Optional[int] = None
     must_change_password: bool = False
+    must_enroll_2fa: bool = False
+
+    @property
+    def restricted(self) -> bool:
+        """True while the user must finish a security step before using the system."""
+        return self.must_change_password or self.must_enroll_2fa
 
     @property
     def is_admin(self) -> bool:
@@ -193,5 +199,5 @@ class Principal:
             "id": self.id, "username": self.username, "full_name": self.full_name, "role": self.role,
             "role_label": Role.LABELS.get(self.role, self.role), "permissions": perms,
             "portal": Role.PORTALS.get(self.role, "/"), "guest_id": self.guest_id,
-            "must_change_password": self.must_change_password,
+            "must_change_password": self.must_change_password, "must_enroll_2fa": self.must_enroll_2fa,
         }

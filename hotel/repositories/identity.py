@@ -4,7 +4,7 @@ from .base import BaseRepository, QueryBuilder
 
 USER_PUBLIC_COLUMNS = (
     "t.id, t.username, t.email, t.full_name, t.role, t.active, t.guest_id, t.failed_attempts, t.locked_until,"
-    " t.must_change_password, t.password_changed_at, t.last_login_at, t.created_at"
+    " t.must_change_password, t.password_changed_at, t.last_login_at, t.created_at, t.totp_enabled"
 )
 
 
@@ -30,7 +30,8 @@ class RoleRepository(BaseRepository):
 class UserRepository(BaseRepository):
     table = "users"
     columns = ("username", "email", "full_name", "role", "password_hash", "active", "guest_id", "failed_attempts",
-               "locked_until", "must_change_password", "password_changed_at", "last_login_at")
+               "locked_until", "must_change_password", "password_changed_at", "last_login_at", "totp_secret", "totp_enabled",
+               "totp_last_step")
     select_sql = f"SELECT {USER_PUBLIC_COLUMNS} FROM users t"
     default_order = "t.role, t.username"
     entity_label = "User"

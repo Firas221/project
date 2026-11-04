@@ -9,6 +9,9 @@ details are never sent to the client.
 class AppError(Exception):
     status = 500
     default_message = "Internal server error"
+    # When True the unit of work is committed even though the request fails
+    # (used to persist failed sign-in counters and security audit entries).
+    commit_changes = False
 
     def __init__(self, message: str = None, *, field: str = None):
         self.message = message or self.default_message
@@ -30,6 +33,11 @@ class ValidationError(AppError):
 class AuthenticationError(AppError):
     status = 401
     default_message = "Please sign in"
+
+
+class LoginFailed(AuthenticationError):
+    """A rejected sign-in whose side effects (attempt counters, lockout, audit) must be saved."""
+    commit_changes = True
 
 
 class PermissionDenied(AppError):

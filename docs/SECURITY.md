@@ -1,0 +1,63 @@
+# Security
+
+## Access control
+
+Access is permission-based, with five roles. Every API route declares an audience and a permission (`hotel/api/controllers`). Services re-check permissions for sensitive operations (defence in depth).
+
+| Role | Portal | Can do (defaults; the administrator can change staff, chef and housekeeper permissions) |
+|---|---|---|
+| Administrator | `/admin` (and every other staff portal) | Everything: users, roles and permissions, settings, audit log, night audit, voids and refunds, rates, purchasing, backups |
+| Front desk staff | `/staff` | Reservations, check-in/out, guests, folios and payments, cashier shift, housekeeping board, maintenance, guest requests, room service, lost & found, reviews |
+| Chef | `/kitchen` | Order board, menu and recipes, kitchen stock, supply requests, report issues |
+| Housekeeper | `/housekeeping` | Own and unassigned cleaning tasks, lost & found, supply requests, report issues |
+| Guest | `/` and `/account` | Own bookings only, online booking and cancellation, bill and invoice, room service, requests, reviews, profile, data export and account deletion |
+
+**Object-level checks:**
+- Guests can only reach their own reservations. Other guests' records return 404, so their existence isn't revealed.
+- Housekeepers can only work on tasks assigned to them, or unassigned ones.
+- Cashiers only see their own shifts unless they have report access.
+- Room numbers are hidden from guests until check-in.
+
+## Authentication
+
+- **Passwords.** PBKDF2-HMAC-SHA256 with 600,000 iterations and a per-user salt; old hashes are upgraded automatically at sign-in. The policy requires at least 10 characters with upper- and lower-case letters and a digit, rejects common passwords and passwords containing the username.
+- **No user enumeration.** Unknown users and wrong passwords get the same message, and unknown users still pay the same hashing cost. Password-reset requests always give the same answer.
+- **Lockout.** After 5 failed attempts the account is locked for 15 minutes; an admin can unlock it. On top of that, each IP is limited to 20 sign-ins per minute, and all API traffic and public endpoints are rate-limited per IP.
+- **Two-factor authentication.** TOTP codes from an authenticator app, compatible with Google and Microsoft Authenticator. A used code cannot be replayed, and a sign-in attempt is discarded after 5 wrong codes. Administrators can be required to use 2FA (Settings → Security).
+- **New accounts.** New and reset accounts get a one-time password and must change it before using anything else.
+- **Password reset.** Single-use links valid for 30 minutes. Only a SHA-256 hash of the token is stored, and all sessions are revoked after a reset.
+
+## Sessions
+
+- **Token.** A random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie, which becomes `__Host-` prefixed and `Secure` over HTTPS. Only its SHA-256 hash is stored.
+- **Expiry.** Sessions end after 60 minutes idle, or 12 hours at most. Changing your password signs out your other sessions.
+- **Forced sign-out.** Deactivating a user or changing their role signs them out everywhere; admins can also revoke a user's sessions manually.
+
+## Request protection
+
+- **CSRF.** Every state-changing call needs the per-session `X-CSRF-Token` header, and the Origin/Referer must match the host.
+- **Strict CSP.** `script-src 'self'` with no inline scripts, `frame-ancestors 'none'`, `object-src 'none'` and `base-uri 'none'`. The other headers sent are `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP/CORP, and HSTS over HTTPS.
+- **Validation.** Every input passes a typed schema: type, length, range, format and allowed values. Unknown fields are dropped, and request bodies are limited to 256 KB and must be JSON.
+- **SQL injection.** All SQL is parameterised, and table and column names come only from repository class constants.
+- **XSS.** All dynamic text is HTML-escaped in the browser (`esc()`).
+- **Files and exports.**
+  - Static files are served with path-traversal protection.
+  - Errors never leak stack traces.
+  - CSV exports neutralise spreadsheet formula injection.
+  - Sign-in redirects only allow same-site paths.
+
+## Audit and privacy
+
+- **Audit log.** Every sign-in (successful and failed), lockout, permission change and business action is recorded with the user, time and IP. It can be filtered and exported in Admin → Audit log.
+- **Password-reset e-mails.** Links in these e-mails are hidden from the outbox view.
+- **Egyptian data protection law (Law 151/2020).** Consent is captured at registration. Guests can export their data and delete their account; staff can export or erase a guest's data on request. Financial records are kept anonymously, as tax law requires.
+
+## Deployment checklist
+
+1. Run behind HTTPS: use `--tls-cert/--tls-key` or the nginx config in `deploy/`. Set `HOTEL_SECURE_COOKIES=1`, plus `HOTEL_TRUST_PROXY=1` only behind your own proxy.
+2. Start with `--no-demo` (or `HOTEL_SEED_DEMO=0`), sign in with the printed one-time admin password and change it.
+3. Enable 2FA for every administrator, then turn on "Require two-factor authentication for administrators".
+4. Configure SMTP so password-reset and booking e-mails are delivered.
+5. Keep automatic backups on and copy them off the server (`deploy/backup-offsite.sh`).
+6. Restrict file permissions on the `data/` folder (the service unit uses `UMask=0077`).
+7. Review the audit log regularly for failed sign-ins and lockouts.

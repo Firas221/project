@@ -37,6 +37,22 @@ class Config:
     api_limit_per_minute: int = 600           # per client IP, all API calls
     public_limit_per_minute: int = 60         # per client IP, unauthenticated endpoints
     allowed_origins: tuple = field(default_factory=tuple)  # extra origins allowed for state-changing requests
+    tls_cert: str = ""                        # PEM certificate -> serve HTTPS directly
+    tls_key: str = ""
+    public_url: str = ""                      # e.g. https://hotel.example.com (used in e-mail links)
+
+    # --- e-mail (leave smtp_host empty to keep mails in the admin outbox only)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "no-reply@hotel.local"
+    smtp_starttls: bool = True
+
+    # --- backups
+    backup_dir: str = os.path.join("data", "backups")
+    backup_interval_hours: int = 24           # 0 disables automatic backups
+    backup_keep: int = 14
 
     @classmethod
     def from_env(cls, **overrides) -> "Config":
@@ -50,6 +66,18 @@ class Config:
             session_absolute_hours=_int("HOTEL_SESSION_HOURS", cls.session_absolute_hours),
             secure_cookies=_bool("HOTEL_SECURE_COOKIES", cls.secure_cookies),
             trust_proxy=_bool("HOTEL_TRUST_PROXY", cls.trust_proxy),
+            tls_cert=os.environ.get("HOTEL_TLS_CERT", ""),
+            tls_key=os.environ.get("HOTEL_TLS_KEY", ""),
+            public_url=os.environ.get("HOTEL_PUBLIC_URL", "").rstrip("/"),
+            smtp_host=os.environ.get("HOTEL_SMTP_HOST", ""),
+            smtp_port=_int("HOTEL_SMTP_PORT", 587),
+            smtp_user=os.environ.get("HOTEL_SMTP_USER", ""),
+            smtp_password=os.environ.get("HOTEL_SMTP_PASSWORD", ""),
+            smtp_from=os.environ.get("HOTEL_SMTP_FROM", cls.smtp_from),
+            smtp_starttls=_bool("HOTEL_SMTP_STARTTLS", True),
+            backup_dir=os.environ.get("HOTEL_BACKUP_DIR", cls.backup_dir),
+            backup_interval_hours=_int("HOTEL_BACKUP_HOURS", 24),
+            backup_keep=_int("HOTEL_BACKUP_KEEP", 14),
             allowed_origins=tuple(o.strip() for o in os.environ.get("HOTEL_ALLOWED_ORIGINS", "").split(",") if o.strip()),
         )
         for k, v in overrides.items():
