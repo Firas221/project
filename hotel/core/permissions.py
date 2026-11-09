@@ -171,6 +171,7 @@ class Principal:
     session_id: Optional[int] = None
     must_change_password: bool = False
     must_enroll_2fa: bool = False
+    must_verify_email: bool = False   # guest accounts: the e-mail address has not been confirmed yet
 
     @property
     def restricted(self) -> bool:
@@ -200,4 +201,10 @@ class Principal:
             "role_label": Role.LABELS.get(self.role, self.role), "permissions": perms,
             "portal": Role.PORTALS.get(self.role, "/"), "guest_id": self.guest_id,
             "must_change_password": self.must_change_password, "must_enroll_2fa": self.must_enroll_2fa,
+            "must_verify_email": self.must_verify_email,
         }
+
+
+def system_principal() -> Principal:
+    """The actor used by scheduled jobs (automatic night audit). Shown as "system" in the audit log."""
+    return Principal(id=None, username="system", full_name="System", role=Role.ADMIN)

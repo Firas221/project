@@ -1,13 +1,28 @@
 """Front office: guests, rooms & room types, pricing."""
+import base64
+import binascii
 import datetime as dt
 
 from ..core.clock import date_range, money, nights, now_str, today_iso
-from ..core.errors import Conflict, ValidationError
+from ..core.errors import Conflict, NotFound, ValidationError
 from ..core.permissions import Perm
 from ..core.validation import Bool, Date, Email, Int, Money, Number, Phone, Schema, Str
 from .base import Service
 
 ID_TYPES = ("passport", "national_id", "driving_license", "other")
+MAX_PHOTO_BYTES = 1_500_000
+MAX_PHOTOS_PER_TYPE = 8
+
+
+def sniff_image(data: bytes):
+    """Returns the MIME type from the file's magic bytes (never trusts what the browser claims), or None."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 class GuestSchema(Schema):
@@ -133,7 +148,51 @@ class BillingServiceProxy(Service):
 class RoomService(Service):
     def types(self, include_inactive=True):
         rows = self.repos.room_types.all()
+        photos = self.repos.room_photos.ids_by_type()
+        for t in rows:
+            t["photos"] = photos.get(t["id"], [])
         return rows if include_inactive else [t for t in rows if t["active"]]
+
+    # ---- photos
+    def add_photo(self, type_id: int, encoded) -> dict:
+        self.require(Perm.ROOMS_MANAGE)
+        t = self.repos.room_types.require(type_id)
+        if not isinstance(encoded, str) or not encoded:
+            raise ValidationError("Choose an image to upload", field="data")
+        try:
+            data = base64.b64decode(encoded.split(",", 1)[-1], validate=True)
+        except (binascii.Error, ValueError):
+            raise ValidationError("The image could not be read", field="data")
+        ctype = sniff_image(data)
+        if not ctype:
+            raise ValidationError("Photos must be JPEG, PNG or WebP images", field="data")
+        if len(data) > MAX_PHOTO_BYTES:
+            raise ValidationError("The image is too large (maximum 1.5 MB)", field="data")
+        if self.repos.room_photos.count(room_type_id=type_id) >= MAX_PHOTOS_PER_TYPE:
+            raise Conflict(f"A room type can have up to {MAX_PHOTOS_PER_TYPE} photos. Delete one first.")
+        pid = self.repos.room_photos.insert(room_type_id=type_id, content_type=ctype, data=data,
+                                            position=self.repos.room_photos.last_position(type_id) + 1)
+        self.audit("room_photo_add", "room_type", type_id, f"{t['name']}: photo #{pid} ({len(data) // 1024} KB)")
+        return self.repos.room_photos.get(pid)
+
+    def delete_photo(self, photo_id: int) -> None:
+        self.require(Perm.ROOMS_MANAGE)
+        p = self.repos.room_photos.require(photo_id)
+        self.repos.room_photos.delete(photo_id)
+        self.audit("room_photo_delete", "room_type", p["room_type_id"], f"photo #{photo_id}")
+
+    def set_cover_photo(self, photo_id: int) -> None:
+        """Moves a photo to the front; the first photo is the one shown on the website's room card."""
+        self.require(Perm.ROOMS_MANAGE)
+        p = self.repos.room_photos.require(photo_id)
+        self.repos.room_photos.update(photo_id, position=self.repos.room_photos.first_position(p["room_type_id"]) - 1)
+        self.audit("room_photo_cover", "room_type", p["room_type_id"], f"photo #{photo_id}")
+
+    def photo(self, photo_id: int):
+        found = self.repos.room_photos.content(photo_id)
+        if not found:
+            raise NotFound("Photo not found")
+        return found
 
     def save_type(self, data: dict, type_id: int = None) -> dict:
         self.require(Perm.ROOMS_MANAGE)
@@ -295,6 +354,12 @@ class PricingService(Service):
             promo_id = self.repos.promos.insert(**v)
         self.audit("promo_save", "promo", promo_id, f"{v['code']} {v['discount_pct']}%")
         return self.repos.promos.get(promo_id)
+
+    def delete_promo(self, promo_id):
+        self.require(Perm.ROOMS_MANAGE)
+        p = self.repos.promos.require(promo_id)
+        self.repos.promos.delete(promo_id)
+        self.audit("promo_delete", "promo", promo_id, f"{p['code']} (used {p['used_count']} time(s))")
 
 
 def stamp():

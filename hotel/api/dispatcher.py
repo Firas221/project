@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 from ..core.errors import (AppError, AuthenticationError, PayloadTooLarge, PermissionDenied, UnsupportedMediaType,
                            ValidationError)
-from ..http.messages import Download, Request, Response, SessionCookie
+from ..http.messages import Binary, Download, Request, Response, SessionCookie
 from ..services.auth import AuthService
 from ..services.base import ServiceContext
 
@@ -47,8 +47,8 @@ class Dispatcher:
         if f"{o.scheme}://{o.netloc}" not in trusted:
             raise PermissionDenied("Cross-site request blocked")
 
-    def _parse_body(self, req: Request) -> None:
-        if len(req.raw_body) > self.cfg.max_body_bytes:
+    def _parse_body(self, route, req: Request) -> None:
+        if len(req.raw_body) > (route.spec.max_body or self.cfg.max_body_bytes):
             raise PayloadTooLarge()
         if not req.raw_body:
             req.body = {}
@@ -93,7 +93,7 @@ class Dispatcher:
             lim.check(f"reset:{req.ip}", 5, 900, message="Too many requests. Try again later.")
         elif bucket == "register":
             lim.check(f"register:{req.ip}", 5, 3600, message="Too many registrations from your network. Try later.")
-        elif route.spec.audience == "public":
+        elif route.spec.audience == "public" and bucket != "none":
             lim.check(f"public:{req.ip}", self.cfg.public_limit_per_minute)
 
     # ------------------------------------------------------------ main entry
@@ -101,7 +101,7 @@ class Dispatcher:
         try:
             route, params = self.app.router.match(req.method, req.path)
             self._rate_limit(route, req)
-            self._parse_body(req)
+            self._parse_body(route, req)
             if req.method in STATE_CHANGING:
                 self._check_origin(req)
             req.session_token = self._read_cookie(req)
@@ -132,7 +132,7 @@ class Dispatcher:
         return None
 
     def _to_response(self, result, req: Request) -> Response:
-        if isinstance(result, Download):
+        if isinstance(result, (Download, Binary)):
             return result.to_response()
         if isinstance(result, SessionCookie):
             resp = Response.json(result.data)

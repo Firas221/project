@@ -32,7 +32,9 @@ class PublicService(Service):
     """Unauthenticated website features."""
 
     def room_types(self) -> list:
+        photos = self.repos.room_photos.ids_by_type()
         return [{k: t[k] for k in ("id", "name", "description", "base_rate", "capacity", "bed_type", "size_sqm", "amenities")}
+                | {"photos": photos.get(t["id"], [])}
                 for t in self.repos.room_types.all() if t["active"]]
 
     def search(self, data: dict) -> dict:
@@ -72,6 +74,8 @@ class GuestPortalService(Service):
     def _guest_id(self) -> int:
         if not self.actor or not self.actor.can(Perm.PORTAL_GUEST) or not self.actor.guest_id:
             raise PermissionDenied()
+        if self.actor.must_verify_email:
+            raise PermissionDenied("Please confirm your e-mail address first. We sent you a link when you registered.")
         return self.actor.guest_id
 
     def _own_reservation(self, reservation_id: int) -> dict:

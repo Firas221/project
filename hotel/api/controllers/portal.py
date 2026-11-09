@@ -1,6 +1,6 @@
 """Public website and the guest (client) portal."""
-from ...services import GuestPortalService, PublicService, SettingsService
-from ...http.messages import Download
+from ...services import GuestPortalService, PublicService, RoomService, SettingsService
+from ...http.messages import Binary, Download
 from ..router import Controller, delete, get, post, put
 import json
 
@@ -13,6 +13,17 @@ class PublicController(Controller):
     @post("/public/search", audience="public", csrf=False)
     def search(self):
         return self.svc(PublicService).search(self.body)
+
+    @get("/public/photos/{photo_id}", audience="public", limit="none")
+    def photo(self, photo_id):
+        content_type, data = self.svc(RoomService).photo(photo_id)
+        return Binary(data, content_type, max_age=86400)
+
+    @get("/health", audience="public", limit="none")
+    def health(self):
+        """Liveness/readiness probe for Docker, load balancers and uptime monitors. Reveals nothing sensitive."""
+        version = self.req.ctx.repos.settings.scalar("SELECT MAX(version) FROM schema_migrations")
+        return {"status": "ok", "schema": version}
 
     @get("/public/reviews", audience="public")
     def reviews(self):

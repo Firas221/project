@@ -1,7 +1,8 @@
 """Repository registry: one lazily-created instance per repository per unit of work."""
 from functools import cached_property
 
-from .finance import (AuditDayRepository, ChallengeRepository, CompanyRepository, InvoiceRepository,
+from .finance import (AuditDayRepository, ChallengeRepository, CompanyRepository, EmailVerificationRepository,
+                      InvoiceRepository,
                       LedgerRepository, OutboxRepository, PasswordResetRepository, PromoRepository,
                       SeasonRepository, ShiftRepository)
 from .guests import GuestRepository
@@ -12,7 +13,7 @@ from .kitchen import MenuRepository, OrderRepository
 from .operations import (GuestRequestRepository, HousekeepingTaskRepository, LostFoundRepository,
                          MaintenanceRepository, ReviewRepository)
 from .reservations import ChargeRepository, PaymentRepository, ReservationRepository
-from .rooms import RoomRepository, RoomTypeRepository
+from .rooms import RoomPhotoRepository, RoomRepository, RoomTypeRepository
 
 
 class Repositories:
@@ -29,6 +30,7 @@ class Repositories:
     guests = cached_property(lambda self: GuestRepository(self.conn))
     room_types = cached_property(lambda self: RoomTypeRepository(self.conn))
     rooms = cached_property(lambda self: RoomRepository(self.conn))
+    room_photos = cached_property(lambda self: RoomPhotoRepository(self.conn))
     reservations = cached_property(lambda self: ReservationRepository(self.conn))
     charges = cached_property(lambda self: ChargeRepository(self.conn))
     payments = cached_property(lambda self: PaymentRepository(self.conn))
@@ -57,5 +59,6 @@ class Repositories:
     audit_days = cached_property(lambda self: AuditDayRepository(self.conn))
     # security & messaging
     password_resets = cached_property(lambda self: PasswordResetRepository(self.conn))
+    email_verifications = cached_property(lambda self: EmailVerificationRepository(self.conn))
     challenges = cached_property(lambda self: ChallengeRepository(self.conn))
     outbox = cached_property(lambda self: OutboxRepository(self.conn))

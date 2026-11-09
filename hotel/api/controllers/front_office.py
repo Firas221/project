@@ -150,6 +150,10 @@ class GuestController(Controller):
                                                           foreign_only=not self.flag("all"))
 
 
+# A 1.5 MB image is about 2 MB once base64-encoded inside JSON.
+PHOTO_UPLOAD_LIMIT = 2_200_000
+
+
 class RoomController(Controller):
     @get("/room-types", audience="user")
     def types(self):
@@ -166,6 +170,18 @@ class RoomController(Controller):
     @delete("/room-types/{type_id}", perm=Perm.ROOMS_MANAGE)
     def delete_type(self, type_id):
         self.svc(RoomService).delete_type(type_id)
+
+    @post("/room-types/{type_id}/photos", perm=Perm.ROOMS_MANAGE, max_body=PHOTO_UPLOAD_LIMIT)
+    def add_photo(self, type_id):
+        return {**self.svc(RoomService).add_photo(type_id, self.body.get("data")), "_created": True}
+
+    @delete("/room-photos/{photo_id}", perm=Perm.ROOMS_MANAGE)
+    def delete_photo(self, photo_id):
+        self.svc(RoomService).delete_photo(photo_id)
+
+    @post("/room-photos/{photo_id}/cover", perm=Perm.ROOMS_MANAGE)
+    def cover_photo(self, photo_id):
+        self.svc(RoomService).set_cover_photo(photo_id)
 
     @get("/rooms")
     def rooms(self):
@@ -215,6 +231,10 @@ class RoomController(Controller):
     @put("/promos/{promo_id}", perm=Perm.ROOMS_MANAGE)
     def update_promo(self, promo_id):
         return self.svc(PricingService).save_promo(self.body, promo_id)
+
+    @delete("/promos/{promo_id}", perm=Perm.ROOMS_MANAGE)
+    def delete_promo(self, promo_id):
+        self.svc(PricingService).delete_promo(promo_id)
 
 
 class CashierController(Controller):

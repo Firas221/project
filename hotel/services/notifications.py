@@ -46,6 +46,13 @@ class NotificationService(Service):
                    f"totals {total:,.2f} {s.get('currency')}. You can view it any time in your account: "
                    f"{self._base_url()}/account" + self._sign())
 
+    def verify_email(self, user: dict, token: str) -> None:
+        link = f"{self._base_url()}/login#verify={token}"
+        self.queue(user["email"], "Confirm your e-mail address",
+                   f"Hello {user['full_name']},\n\nWelcome! Please confirm that this e-mail address is yours by opening "
+                   f"this link within 48 hours:\n\n{link}\n\n"
+                   "If you did not create an account, you can ignore this e-mail." + self._sign())
+
     def welcome(self, user: dict) -> None:
         self.queue(user["email"], "Welcome", f"Hello {user['full_name']},\n\nYour account has been created. "
                    f"Sign in at {self._base_url()}/login" + self._sign())

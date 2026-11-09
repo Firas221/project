@@ -11,6 +11,9 @@ from .base import Service
 from .notifications import NotificationService
 
 GENERIC_LOGIN_ERROR = "Invalid username or password"
+VERIFY_HOURS = 48
+# Profile fields copied from an older guest profile when it is merged into a verified account.
+MERGE_FIELDS = ("phone", "address", "nationality", "id_number", "date_of_birth", "gender", "notes")
 
 
 class RegisterSchema(Schema):
@@ -50,9 +53,16 @@ class AuthService(Service):
         perms = frozenset() if user["role"] == Role.ADMIN else frozenset(self.repos.roles.permissions_of(user["role"]))
         must_2fa = (user["role"] == Role.ADMIN and self.settings().get("require_2fa_for_admins") == "1"
                     and not self.repos.users.fetch_one("SELECT totp_enabled FROM users WHERE id=?", (user["id"],))["totp_enabled"])
+        must_verify = (user["role"] == Role.GUEST and not user.get("email_verified_at")
+                       and self.email_verification_enforced())
         return Principal(id=user["id"], username=user["username"], full_name=user["full_name"], role=user["role"],
                          permissions=perms, guest_id=user.get("guest_id"), session_id=session_id,
-                         must_change_password=bool(user.get("must_change_password")), must_enroll_2fa=must_2fa)
+                         must_change_password=bool(user.get("must_change_password")), must_enroll_2fa=must_2fa,
+                         must_verify_email=must_verify)
+
+    def email_verification_enforced(self) -> bool:
+        """Guests must confirm their address only when the hotel can actually deliver e-mail."""
+        return bool(self.cfg.smtp_host) and self.settings().get("require_email_verification", "1") == "1"
 
     # ------------------------------------------------------------ sign-in
     def login(self, username: str, password: str, user_agent: str = "") -> dict:
@@ -121,7 +131,8 @@ class AuthService(Service):
             return None, None
         self.repos.sessions.touch(row["id"])
         user = {"id": row["user_id"], "username": row["username"], "full_name": row["full_name"], "role": row["role"],
-                "guest_id": row["guest_id"], "must_change_password": row["must_change_password"]}
+                "guest_id": row["guest_id"], "must_change_password": row["must_change_password"],
+                "email_verified_at": row["email_verified_at"]}
         return self.principal_for(user, row["id"]), row
 
     def logout(self, token: str) -> None:
@@ -173,6 +184,63 @@ class AuthService(Service):
         self.repos.password_resets.update(row["id"], used_at=now_str())
         self.repos.sessions.delete_for_user(user["id"])
         self.audit("password_reset", "user", user["id"], user["username"])
+        if user["role"] == Role.GUEST and not user["email_verified_at"]:
+            self._mark_email_verified(user)  # the link was delivered to this address, so it is confirmed
+
+    # ------------------------------------------------------------ e-mail verification (guest accounts)
+    def _send_verification(self, user: dict) -> None:
+        token = Tokens.new(32)
+        self.repos.email_verifications.execute(
+            "UPDATE email_verifications SET used_at=? WHERE user_id=? AND used_at IS NULL", (now_str(), user["id"]))
+        self.repos.email_verifications.insert(user_id=user["id"], token_hash=Tokens.digest(token),
+                                              expires_at=in_minutes(VERIFY_HOURS * 60))
+        self.use(NotificationService).verify_email(user, token)
+
+    def resend_verification(self) -> None:
+        user = self.repos.users.require(self.actor.id)
+        if user["role"] != Role.GUEST or user["email_verified_at"]:
+            raise Conflict("Your e-mail address is already confirmed")
+        self._send_verification(user)
+        self.audit("email_verification_sent", "user", user["id"], user["username"])
+
+    def verify_email(self, token: str) -> None:
+        row = self.repos.email_verifications.fetch_one(
+            "SELECT * FROM email_verifications WHERE token_hash=? AND used_at IS NULL AND expires_at > ?",
+            (Tokens.digest(token or ""), now_str()))
+        if not row:
+            raise ValidationError("This confirmation link is invalid or has expired. Sign in and request a new one.")
+        self.repos.email_verifications.update(row["id"], used_at=now_str())
+        self._mark_email_verified(self.repos.users.require(row["user_id"]))
+
+    def _mark_email_verified(self, user: dict) -> None:
+        self.repos.users.update(user["id"], email_verified_at=now_str())
+        merged = self._adopt_earlier_profiles(user)
+        self.audit("email_verified", "user", user["id"],
+                   user["username"] + (f" (merged {merged} earlier guest profile(s))" if merged else ""))
+
+    def _adopt_earlier_profiles(self, user: dict) -> int:
+        """Stays booked at the desk under the same e-mail join the account — but only once the address is confirmed,
+        so nobody can read another guest's bookings by registering with that guest's e-mail."""
+        if not user["guest_id"] or not user["email"]:
+            return 0
+        mine = self.repos.guests.require(user["guest_id"])
+        earlier = self.repos.guests.fetch_all(
+            "SELECT g.* FROM guests g WHERE g.email = ? COLLATE NOCASE AND g.id <> ? AND g.anonymized_at IS NULL"
+            " AND NOT EXISTS (SELECT 1 FROM users u WHERE u.guest_id = g.id) ORDER BY g.id DESC",
+            (user["email"], mine["id"]))
+        for old in earlier:
+            self.repos.guests.execute("UPDATE reservations SET guest_id=? WHERE guest_id=?", (mine["id"], old["id"]))
+            self.repos.guests.execute("UPDATE lost_found SET guest_id=? WHERE guest_id=?", (mine["id"], old["id"]))
+            fill = {k: old[k] for k in MERGE_FIELDS if old[k] and not mine[k]}
+            if old["id_number"] and not mine["id_number"]:
+                fill["id_type"] = old["id_type"]
+            if old["vip"] and not mine["vip"]:
+                fill["vip"] = 1
+            if fill:
+                self.repos.guests.update(mine["id"], **fill)
+                mine.update(fill)
+            self.repos.guests.delete(old["id"])
+        return len(earlier)
 
     # ------------------------------------------------------------ two-factor enrolment
     def start_2fa(self) -> dict:
@@ -215,22 +283,17 @@ class AuthService(Service):
             # Do not reveal more than necessary; the owner can use password reset.
             raise Conflict("We could not create an account with these details. If you already have one, sign in "
                            "or reset your password.")
-        guest = self.repos.guests.fetch_one(
-            "SELECT g.id FROM guests g WHERE g.email = ? AND NOT EXISTS (SELECT 1 FROM users u WHERE u.guest_id = g.id)"
-            " AND g.anonymized_at IS NULL ORDER BY g.id DESC LIMIT 1", (v["email"],))
+        # Always a fresh profile: an earlier profile with the same e-mail (and its bookings) is only attached
+        # after the address has been confirmed — see _adopt_earlier_profiles.
         stamp = now_str()
-        if guest:
-            guest_id = guest["id"]
-            self.repos.guests.update(guest_id, privacy_accepted_at=stamp, marketing_consent=int(v["marketing_consent"]))
-        else:
-            guest_id = self.repos.guests.insert(first_name=v["first_name"], last_name=v["last_name"], email=v["email"],
-                                                phone=v["phone"], nationality=v["nationality"],
-                                                privacy_accepted_at=stamp, marketing_consent=int(v["marketing_consent"]))
+        guest_id = self.repos.guests.insert(first_name=v["first_name"], last_name=v["last_name"], email=v["email"],
+                                            phone=v["phone"], nationality=v["nationality"],
+                                            privacy_accepted_at=stamp, marketing_consent=int(v["marketing_consent"]))
         uid = self.repos.users.insert(username=v["email"], email=v["email"], role=Role.GUEST, guest_id=guest_id,
                                       full_name=f"{v['first_name']} {v['last_name']}",
                                       password_hash=self.hasher.hash(v["password"]), password_changed_at=stamp)
         user = self.repos.users.get_with_secret(v["email"])
-        self.use(NotificationService).welcome(user)
+        self._send_verification(user)
         self.ctx.actor = self.principal_for(user)
         self.audit("guest_registered", "user", uid, v["email"])
         return self._complete_login(user, user_agent)

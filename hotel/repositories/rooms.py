@@ -12,6 +12,31 @@ class RoomTypeRepository(BaseRepository):
     entity_label = "Room type"
 
 
+class RoomPhotoRepository(BaseRepository):
+    """Photos of a room type. The image bytes are only read when a photo is served."""
+    table = "room_photos"
+    columns = ("room_type_id", "content_type", "data", "position")
+    select_sql = "SELECT t.id, t.room_type_id, t.content_type, t.position, length(t.data) AS size, t.created_at FROM room_photos t"
+    default_order = "t.position, t.id"
+    entity_label = "Photo"
+
+    def ids_by_type(self) -> dict:
+        out = {}
+        for r in self.fetch_all("SELECT id, room_type_id FROM room_photos ORDER BY position, id"):
+            out.setdefault(r["room_type_id"], []).append(r["id"])
+        return out
+
+    def content(self, photo_id: int):
+        row = self.conn.execute("SELECT content_type, data FROM room_photos WHERE id = ?", (photo_id,)).fetchone()
+        return (row["content_type"], bytes(row["data"])) if row else None
+
+    def first_position(self, room_type_id: int) -> int:
+        return self.scalar("SELECT MIN(position) FROM room_photos WHERE room_type_id = ?", (room_type_id,), 0)
+
+    def last_position(self, room_type_id: int) -> int:
+        return self.scalar("SELECT MAX(position) FROM room_photos WHERE room_type_id = ?", (room_type_id,), 0)
+
+
 class RoomRepository(BaseRepository):
     table = "rooms"
     columns = ("number", "floor", "type_id", "status", "notes")

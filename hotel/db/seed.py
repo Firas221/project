@@ -38,6 +38,10 @@ DEFAULT_SETTINGS = {
     "max_online_nights": "30",
     # security
     "require_2fa_for_admins": "0",
+    "require_email_verification": "1",
+    # automatic night audit (off until the administrator turns it on)
+    "auto_night_audit": "0",
+    "night_audit_time": "03:00",
 }
 
 DEMO_PASSWORDS = {
@@ -159,7 +163,8 @@ class DemoData:
         # Amelia has an online account (client portal).
         self.r.users.insert(username="amelia.hart@example.com", email="amelia.hart@example.com",
                             full_name="Amelia Hart", role=Role.GUEST, guest_id=ids[0],
-                            password_hash=self.hasher.hash(DEMO_PASSWORDS["guest"]))
+                            password_hash=self.hasher.hash(DEMO_PASSWORDS["guest"]),
+                            email_verified_at=self.d(-30) + " 10:00:00")
         return ids
 
     def _inventory(self):

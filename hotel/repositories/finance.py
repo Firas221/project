@@ -122,6 +122,11 @@ class PasswordResetRepository(BaseRepository):
     columns = ("user_id", "token_hash", "expires_at", "used_at")
 
 
+class EmailVerificationRepository(BaseRepository):
+    table = "email_verifications"
+    columns = ("user_id", "token_hash", "expires_at", "used_at")
+
+
 class ChallengeRepository(BaseRepository):
     """Short-lived second-factor login challenges."""
     table = "login_challenges"

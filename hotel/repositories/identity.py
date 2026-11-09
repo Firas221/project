@@ -4,7 +4,7 @@ from .base import BaseRepository, QueryBuilder
 
 USER_PUBLIC_COLUMNS = (
     "t.id, t.username, t.email, t.full_name, t.role, t.active, t.guest_id, t.failed_attempts, t.locked_until,"
-    " t.must_change_password, t.password_changed_at, t.last_login_at, t.created_at, t.totp_enabled"
+    " t.must_change_password, t.password_changed_at, t.last_login_at, t.created_at, t.totp_enabled, t.email_verified_at"
 )
 
 
@@ -31,7 +31,7 @@ class UserRepository(BaseRepository):
     table = "users"
     columns = ("username", "email", "full_name", "role", "password_hash", "active", "guest_id", "failed_attempts",
                "locked_until", "must_change_password", "password_changed_at", "last_login_at", "totp_secret", "totp_enabled",
-               "totp_last_step")
+               "totp_last_step", "email_verified_at")
     select_sql = f"SELECT {USER_PUBLIC_COLUMNS} FROM users t"
     default_order = "t.role, t.username"
     entity_label = "User"
@@ -66,7 +66,7 @@ class SessionRepository(BaseRepository):
 
     def find_valid(self, token_hash: str, idle_cutoff: str):
         return self.fetch_one(
-            "SELECT s.*, u.username, u.full_name, u.role, u.active, u.guest_id, u.must_change_password"
+            "SELECT s.*, u.username, u.full_name, u.role, u.active, u.guest_id, u.must_change_password, u.email_verified_at"
             " FROM sessions s JOIN users u ON u.id = s.user_id"
             " WHERE s.token_hash = ? AND s.expires_at > ? AND s.last_seen_at > ?",
             (token_hash, now_str(), idle_cutoff),

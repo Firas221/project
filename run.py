@@ -5,6 +5,7 @@
     python3 run.py --no-demo           # empty hotel; prints a one-time admin password
     python3 run.py --host 0.0.0.0 --port 8443 --tls-cert cert.pem --tls-key key.pem
     python3 run.py --backup-now        # write a backup and exit
+    python3 run.py --restore FILE      # replace the database with a backup and exit
 
 All options can also be set with HOTEL_* environment variables (see README).
 """
@@ -27,6 +28,8 @@ def main():
     p.add_argument("--tls-key", help="PEM private key file")
     p.add_argument("--open", action="store_true", help="open the website in a browser")
     p.add_argument("--backup-now", action="store_true", help="create a database backup and exit")
+    p.add_argument("--restore", metavar="FILE", help="restore a backup (a path, or a file name from the backup folder) "
+                                                     "over the database and exit; the current data is backed up first")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,6 +40,16 @@ def main():
     if a.tls_cert:
         overrides["secure_cookies"] = True
     app = HotelApp(Config.from_env(**overrides))
+    if a.restore:
+        path = a.restore if os.path.isfile(a.restore) else os.path.join(app.config.backup_dir, a.restore)
+        try:
+            result = app.restore_backup(path)
+        except ValueError as e:
+            raise SystemExit(f"Restore failed: {e}")
+        print(f"Restored {result['restored']} into {os.path.abspath(app.config.db_path)}")
+        if result["safety_backup"]:
+            print(f"The data it replaced was saved first as {result['safety_backup']} in {app.config.backup_dir}")
+        return
     info = app.initialize()
     if a.backup_now:
         print("Backup written:", app.backups.run()["file"])

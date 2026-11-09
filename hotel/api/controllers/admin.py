@@ -1,15 +1,19 @@
 """Administration: users, roles, settings, audit, reports, night audit, backups, exports."""
 import csv
 import io
+import logging
 import re
 
 from ...core.clock import today_iso
-from ...core.errors import NotFound, PermissionDenied
+from ...core.errors import NotFound, PermissionDenied, ValidationError
 from ...core.permissions import Perm
 from ...http.messages import Download
 from ...services import (AuditService, GuestService, InventoryService, NightAuditService, ReportService,
                          ReservationService, RoleService, SettingsService, UserAdminService)
 from ..router import Controller, get, post, put
+
+
+log = logging.getLogger("hotel.admin")
 
 
 def to_csv(name: str, header: list, rows: list) -> Download:
@@ -121,6 +125,27 @@ class ReportController(Controller):
     def backup_now(self):
         result = self.req.ctx.app.backups.run()
         self.req.ctx.service(AuditService).audit("backup_manual", "backup", None, result["file"])
+        return result
+
+    @post("/backups/restore", perm=Perm.SETTINGS_MANAGE)
+    def restore(self):
+        """Replaces all current data with a backup. Needs the administrator's password again."""
+        ctx = self.req.ctx
+        if not self.req.user.is_admin:
+            raise PermissionDenied("Only an administrator can restore a backup")
+        if not ctx.app.hasher.verify(str(self.body.get("password") or ""), ctx.repos.users.password_hash(self.req.user.id)):
+            raise ValidationError("Password is incorrect", field="password")
+        try:
+            path = ctx.app.backups.resolve(self.body.get("file"))
+        except ValueError as e:
+            raise NotFound(str(e))
+        who = self.req.user.username
+        ctx.conn.execute("COMMIT")  # release this request's write lock so the restore can replace the database
+        try:
+            result = ctx.app.restore_backup(path)
+        except ValueError as e:
+            raise ValidationError(str(e))
+        log.warning("Backup %s restored by %s from %s", result["restored"], who, self.req.ip)
         return result
 
 
