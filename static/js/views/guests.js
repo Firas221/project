@@ -54,6 +54,7 @@ export async function guestView(el, { args, ctx, alive }) {
       <div class="btn-row">${ctx.can('guests.manage') && !erased ? '<button class="btn" id="edit">Edit</button>' : ''}
       ${ctx.can('guests.manage') ? '<button class="btn" id="export">Export data (PDPL)</button>' : ''}
       ${ctx.can('users.manage') && !erased ? '<button class="btn danger" id="erase">Erase personal data</button>' : ''}
+      ${ctx.can('guests.manage') && !g.reservations.length && !g.user_id ? '<button class="btn danger" id="delete">Delete guest</button>' : ''}
       ${ctx.can('reservations.manage') && !erased ? '<button class="btn primary" id="book">+ Book stay</button>' : ''}</div></div>
     <div class="grid g-main-side">
       <div class="card"><div class="card-head"><h2>Reservations</h2></div>${table(['Code', 'Room', 'Dates', 'Status', ['Total', 'num']],
@@ -76,6 +77,10 @@ export async function guestView(el, { args, ctx, alive }) {
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = `guest-${g.id}-data.json`;
     a.click();
+  });
+  b('#delete', async () => {
+    if (!(await confirmBox('Delete guest', 'Delete this guest profile? Only profiles with no reservations and no online account can be deleted.', 'Delete'))) return;
+    if (await guarded(() => DEL('/guests/' + g.id), 'Guest deleted')) location.hash = '#/guests';
   });
   b('#erase', async () => {
     if (!(await confirmBox('Erase personal data', `Permanently erase ${esc(g.first_name)} ${esc(g.last_name)}'s personal data (name, contact, ID)?
@@ -103,5 +108,3 @@ export async function registerView(el, { params, alive }) {
   $('#all').addEventListener('change', go);
   $('#p').addEventListener('click', () => print());
 }
-
-export { DEL };

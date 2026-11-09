@@ -6,6 +6,8 @@ const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
 // ------------------------------------------------------------------ formatting
+let LOCALE;   // undefined = the browser's own language
+try { if (localStorage.getItem('lang') === 'ar') LOCALE = 'ar-EG-u-nu-latn'; } catch (e) { /* storage unavailable */ }
 export const settings = { currency: 'EGP' };
 export function configure(s) { Object.assign(settings, s || {}); }
 
@@ -20,12 +22,12 @@ export function fmtDate(iso, opts) {
   if (!iso) return '';
   const d = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso.replace(' ', 'T'));
   if (isNaN(d)) return esc(iso);
-  return d.toLocaleDateString(undefined, opts || { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(LOCALE, opts || { day: 'numeric', month: 'short', year: 'numeric' });
 }
 export function fmtDateTime(s) {
   if (!s) return '';
   const d = new Date(s.replace(' ', 'T'));
-  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 export function money(v) {
   const n = Number(v || 0);

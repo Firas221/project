@@ -29,7 +29,7 @@ async function init() {
     <main class="site-main">
       <section id="results"></section>
       <section id="rooms"><h2>${t('ourRooms')}</h2><div class="room-grid">${info.room_types.map((r) => `<article class="room-card">
-        <div class="room-img" aria-hidden="true">${esc(r.name[0])}</div><div class="room-body"><h3>${esc(r.name)}</h3><p>${esc(r.description)}</p>
+        ${roomImage(r)}<div class="room-body"><h3>${esc(r.name)}</h3><p>${esc(r.description)}</p>
         <div class="small muted">${esc(r.bed_type)} · ${r.size_sqm ? r.size_sqm + ' m² · ' : ''}${t('upTo')} ${r.capacity} ${t('guests')}</div>
         <div class="amen">${r.amenities.split(',').map((a) => `<span>${esc(a.trim())}</span>`).join('')}</div>
         <div class="price">${t('from')} <b>${money(r.base_rate)}</b> ${t('perNight')}</div></div></article>`).join('')}</div>
@@ -41,6 +41,11 @@ async function init() {
     <footer class="site-foot"><div><b>${esc(name)}</b><br>${esc(s.address)}<br>${esc(s.phone)} · ${esc(s.email)}</div>
       <div>${t('checkIn')} ${esc(s.check_in_time)} · ${t('checkOut')} ${esc(s.check_out_time)}<br><a href="/privacy">${t('privacy')}</a> · <a href="/login">Staff</a></div></footer>`;
   $('#lang').addEventListener('click', toggleLang);
+  $$('[data-photo]').forEach((b) => b.addEventListener('click', () => {
+    const box = b.closest('.room-photo');
+    $('img', box).src = '/api/public/photos/' + b.dataset.photo;
+    $$('[data-photo]', box).forEach((x) => x.classList.toggle('active', x === b));
+  }));
   const form = $('#search');
   form.check_in.addEventListener('change', () => { if (form.check_out.value <= form.check_in.value) form.check_out.value = addDays(form.check_in.value, 1); });
   form.addEventListener('submit', (e) => { e.preventDefault(); search(Object.fromEntries(new FormData(form))); });
@@ -55,6 +60,13 @@ async function init() {
   }
 }
 
+/** Cover photo with small thumbnails to switch between photos, or a letter tile when the hotel has not added any. */
+function roomImage(r) {
+  if (!r.photos.length) return `<div class="room-img" aria-hidden="true">${esc(r.name[0])}</div>`;
+  return `<div class="room-photo"><img src="/api/public/photos/${r.photos[0]}" alt="${esc(r.name)}" loading="lazy">
+    ${r.photos.length > 1 ? `<div class="thumbs">${r.photos.map((id, i) => `<button type="button" data-photo="${id}" class="${i ? '' : 'active'}" aria-label="${esc(r.name)} ${i + 1}"><img src="/api/public/photos/${id}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}</div>`;
+}
+
 async function search(q) {
   const box = $('#results');
   box.innerHTML = '<div class="empty">…</div>';
@@ -63,7 +75,7 @@ async function search(q) {
   const sc = +settings.service_charge_rate || 0, vat = +settings.vat_rate || 0;
   const withTax = (x) => x * (1 + sc / 100) * (1 + vat / 100);
   box.innerHTML = `<h2>${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}</h2>${r.offers.length ? `<div class="offer-list">${r.offers.map((o) => `
-    <article class="offer"><div><h3>${esc(o.name)}</h3><div class="small muted">${t('upTo')} ${o.capacity} ${t('guests')} · ${esc(o.bed_type)}</div>
+    <article class="offer">${o.photos.length ? `<img class="offer-img" src="/api/public/photos/${o.photos[0]}" alt="${esc(o.name)}" loading="lazy">` : ''}<div class="offer-info"><h3>${esc(o.name)}</h3><div class="small muted">${t('upTo')} ${o.capacity} ${t('guests')} · ${esc(o.bed_type)}</div>
       ${o.quote.discount ? `<div class="deal">${esc(o.quote.discount_label)} −${o.quote.discount_pct}%</div>` : ''}
       ${o.quote.nightly.some((n) => n.label) ? `<div class="small muted">${[...new Set(o.quote.nightly.filter((n) => n.label).map((n) => n.label))].map(esc).join(', ')}</div>` : ''}
       ${!o.quote.meets_min_stay ? `<div class="text-bad small">Minimum stay ${o.quote.min_nights} ${t('nights')}</div>` : ''}</div>

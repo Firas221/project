@@ -18,9 +18,23 @@ async function init() {
       <button class="link-btn" id="out">${t('signout')}</button></nav></header><main class="site-main account" id="view"></main>`;
   $('#lang').addEventListener('click', toggleLang);
   $('#out').addEventListener('click', async () => { await logout(); location.href = '/'; });
+  if (me.user.must_verify_email) { verifyNotice(); return; }
   window.addEventListener('hashchange', route);
   window.addEventListener('auth:expired', () => { location.href = '/login?next=/account'; });
   route();
+}
+
+/** Shown instead of the account until the guest opens the confirmation link we e-mailed. */
+function verifyNotice() {
+  $('.site-head nav').querySelectorAll('a').forEach((a) => a.remove());
+  $('#view').innerHTML = `<div class="card card-body stack" style="max-width:560px;margin:40px auto">
+    <h1>${t('verifyTitle')}</h1><p>${t('verifyText', { email: esc(me.user.username) })}</p>
+    <div class="btn-row"><button class="btn primary" id="resend">${t('verifyResend')}</button><button class="btn" id="check">${t('verifyDone')}</button></div></div>`;
+  $('#resend').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    if (!(await guarded(() => POST('/auth/verify-email/resend'), t('verifySent')))) e.target.disabled = false;
+  });
+  $('#check').addEventListener('click', () => location.reload());
 }
 
 async function route() {

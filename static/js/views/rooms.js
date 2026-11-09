@@ -39,7 +39,8 @@ export async function roomsView(el, { params, ctx, alive }) {
     body.innerHTML = `<div class="card">${table(['Name', 'Bed', ['Size', 'num'], ['Guests', 'num'], ['Base rate / night', 'num'], ['Rooms', 'num'], 'Status', ''], types.map((t) => `
       <tr><td><b>${esc(t.name)}</b><div class="small muted">${esc(t.amenities)}</div></td><td>${esc(t.bed_type)}</td><td class="num">${t.size_sqm || '—'} m²</td>
       <td class="num">${t.capacity}</td><td class="num">${money(t.base_rate)}</td><td class="num">${t.room_count}</td><td>${t.active ? badge('clean', 'Selling') : badge('closed', 'Hidden')}</td>
-      <td class="actions">${admin ? `<button class="btn sm" data-edit="${t.id}">Edit</button>` : ''}</td></tr>`).join(''))}</div>
+      <td class="actions">${admin ? `<button class="btn sm" data-photos="${t.id}">Photos (${t.photos.length})</button> <button class="btn sm" data-edit="${t.id}">Edit</button>
+        <button class="btn sm ghost danger" data-del-type="${t.id}" title="Delete room type" aria-label="Delete room type">✕</button>` : ''}</td></tr>`).join(''))}</div>
       <p class="small muted">Rates exclude ${esc(ctx.settings.service_charge_rate)}% service charge and ${esc(ctx.settings.vat_rate)}% VAT. Seasonal and weekend adjustments are applied automatically.</p>`;
     const form = async (t = {}) => {
       const ok = await modal({ title: t.id ? 'Edit room type' : 'New room type',
@@ -51,18 +52,25 @@ export async function roomsView(el, { params, ctx, alive }) {
     };
     if ($('#add')) $('#add').addEventListener('click', () => form());
     on(body, '[data-edit]', 'click', (e, b) => form(types.find((x) => x.id === +b.dataset.edit)));
+    on(body, '[data-photos]', 'click', async (e, b) => { await photosDialog(types.find((x) => x.id === +b.dataset.photos)); ctx.refresh(); });
+    on(body, '[data-del-type]', 'click', async (e, b) => {
+      if (await confirmBox('Delete room type', 'Delete this room type and its photos? Room types that still have rooms cannot be deleted.', 'Delete')
+        && await guarded(() => DEL('/room-types/' + b.dataset.delType), 'Room type deleted')) ctx.refresh();
+    });
   } else {
     const [seasons, promos] = await Promise.all([GET('/seasons'), admin ? GET('/promos') : []]);
     if (admin) actions.innerHTML = '<button class="btn" id="add-promo">+ Promo code</button><button class="btn primary" id="add-season">+ Season</button>';
     body.innerHTML = `<div class="grid g2"><div class="card"><div class="card-head"><h2>Seasons</h2></div>${table(['Season', 'Dates', 'Applies to', ['Adjust', 'num'], 'Min stay', ''],
       seasons.map((s) => `<tr><td><b>${esc(s.name)}</b> ${s.active ? '' : badge('closed', 'Off')}</td><td class="nowrap">${fmtDate(s.start_date)} – ${fmtDate(s.end_date)}</td>
         <td>${esc(s.room_type_name || 'All room types')}</td><td class="num ${s.adjust_pct < 0 ? 'text-good' : ''}">${s.adjust_pct > 0 ? '+' : ''}${s.adjust_pct}%</td>
-        <td>${s.min_nights} night(s)</td><td class="actions">${admin ? `<button class="btn sm" data-season="${s.id}">Edit</button>` : ''}</td></tr>`).join(''), 'No seasons defined')}
+        <td>${s.min_nights} night(s)</td><td class="actions">${admin ? `<button class="btn sm" data-season="${s.id}">Edit</button>
+          <button class="btn sm ghost danger" data-del-season="${s.id}" title="Delete season" aria-label="Delete season">✕</button>` : ''}</td></tr>`).join(''), 'No seasons defined')}
       <div class="card-body small muted">Weekend (${esc(ctx.settings.weekend_days || 'Fri, Sat')}) uplift is set in Settings.</div></div>
       ${admin ? `<div class="card"><div class="card-head"><h2>Promo codes</h2></div>${table(['Code', 'Discount', 'Valid', 'Uses', ''], promos.map((p) => `
         <tr><td><b>${esc(p.code)}</b><div class="small muted">${esc(p.description)}</div></td><td>${p.discount_pct}%${p.online_only ? ' <span class="badge plain">online</span>' : ''}</td>
         <td class="nowrap small">${fmtDate(p.valid_from)} – ${fmtDate(p.valid_to)}</td><td>${p.used_count}${p.max_uses ? '/' + p.max_uses : ''}</td>
-        <td class="actions"><button class="btn sm" data-promo="${p.id}">Edit</button></td></tr>`).join(''), 'No promo codes')}</div>` : ''}</div>`;
+        <td class="actions"><button class="btn sm" data-promo="${p.id}">Edit</button>
+          <button class="btn sm ghost danger" data-del-promo="${p.id}" title="Delete promo code" aria-label="Delete promo code">✕</button></td></tr>`).join(''), 'No promo codes')}</div>` : ''}</div>`;
     const seasonForm = async (s = {}) => {
       const ok = await modal({ title: s.id ? 'Edit season' : 'New season',
         body: `<div class="form-grid">${field('Name *', 'name', s.name, '', 'full')}${field('Start *', 'start_date', s.start_date, 'type="date"')}${field('End *', 'end_date', s.end_date, 'type="date"')}
@@ -84,5 +92,59 @@ export async function roomsView(el, { params, ctx, alive }) {
     if ($('#add-promo')) $('#add-promo').addEventListener('click', () => promoForm());
     on(body, '[data-season]', 'click', (e, b) => seasonForm(seasons.find((x) => x.id === +b.dataset.season)));
     on(body, '[data-promo]', 'click', (e, b) => promoForm(promos.find((x) => x.id === +b.dataset.promo)));
+    on(body, '[data-del-season]', 'click', async (e, b) => {
+      if (await confirmBox('Delete season', 'Delete this season? Rates on those dates go back to the base rate.', 'Delete')
+        && await guarded(() => DEL('/seasons/' + b.dataset.delSeason), 'Season deleted')) ctx.refresh();
+    });
+    on(body, '[data-del-promo]', 'click', async (e, b) => {
+      if (await confirmBox('Delete promo code', 'Delete this promo code? Bookings already made with it keep their price.', 'Delete')
+        && await guarded(() => DEL('/promos/' + b.dataset.delPromo), 'Promo code deleted')) ctx.refresh();
+    });
   }
+}
+
+// ------------------------------------------------------------------ room-type photos
+const PHOTO_MAX_EDGE = 1600;
+
+/** Shrinks a picture in the browser (longest edge 1600 px, JPEG) so uploads stay small and fast. */
+async function shrinkImage(file) {
+  const img = await createImageBitmap(file);
+  const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+}
+
+async function photosDialog(type) {
+  let photos = type.photos.slice();
+  await modal({
+    title: 'Photos', wide: true, cancel: 'Done',
+    body: `<p class="small muted">Shown on the booking website. The first photo is the cover. JPEG, PNG or WebP; up to 8 photos.</p>
+      <div class="photo-grid" id="ph"></div>
+      <label class="btn primary" style="margin-top:12px"><span>+ Add photos</span><input type="file" id="pick" accept="image/jpeg,image/png,image/webp" multiple hidden></label>`,
+    onOpen: (m) => {
+      const grid = $('#ph', m);
+      const reload = async () => { photos = ((await GET('/room-types')).find((x) => x.id === type.id) || { photos: [] }).photos; draw(); };
+      const draw = () => {
+        grid.innerHTML = photos.map((id, i) => `<figure class="photo"><img src="/api/public/photos/${id}" alt="" loading="lazy">
+          <figcaption>${i === 0 ? '<span class="badge b-good">Cover</span>' : `<button type="button" class="btn sm" data-cover="${id}">Make cover</button>`}
+          <button type="button" class="btn sm ghost danger" data-rm="${id}" title="Delete photo" aria-label="Delete photo">✕</button></figcaption></figure>`).join('')
+          || '<div class="empty">No photos yet</div>';
+        on(grid, '[data-cover]', 'click', async (e, b) => { if (await guarded(() => POST(`/room-photos/${b.dataset.cover}/cover`))) reload(); });
+        on(grid, '[data-rm]', 'click', async (e, b) => { if (await guarded(() => DEL('/room-photos/' + b.dataset.rm), 'Photo deleted')) reload(); });
+      };
+      $('#pick', m).addEventListener('change', async (e) => {
+        for (const file of Array.from(e.target.files)) {
+          let data;
+          try { data = await shrinkImage(file); } catch (ex) { toast('This file is not an image the browser can read', 'error'); continue; }
+          if (!(await guarded(() => POST(`/room-types/${type.id}/photos`, { data }), 'Photo added'))) break;
+        }
+        e.target.value = '';
+        reload();
+      });
+      draw();
+    },
+  });
 }

@@ -106,11 +106,23 @@ function resetPassword(token) {
   });
 }
 
+async function verifyEmail(token) {
+  history.replaceState(null, '', '/login');
+  let signedIn = false;
+  try { await POST('/auth/verify-email', { token }); } catch (ex) { signIn(); showError(ex.message); return; }
+  try { await GET('/auth/me'); signedIn = true; } catch (e) { /* confirmed from another browser */ }
+  if (signedIn) {
+    shell(`<div class="notice">${t('emailConfirmed')}</div><p style="margin-top:14px"><a class="btn primary block" href="/account">${t('account')}</a></p>`);
+  } else { signIn(); showMsg(t('emailConfirmed')); }
+}
+
 (async () => {
   try { hotel = (await GET('/public/info')).settings; } catch (e) { /* offline */ }
   document.title = `${t('signin')} · ${hotel.hotel_name}`;
-  const reset = new URLSearchParams(location.hash.slice(1)).get('reset');
-  if (reset) resetPassword(reset);
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const reset = hash.get('reset');
+  if (hash.get('verify')) verifyEmail(hash.get('verify'));
+  else if (reset) resetPassword(reset);
   else if (params.get('register')) register();
   else signIn();
 })();

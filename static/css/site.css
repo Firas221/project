@@ -17,7 +17,15 @@ body.site { background: var(--bg); }
 .site-main h2 { font-size: 22px; margin-bottom: 14px; }
 .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .room-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
-.room-img { height: 120px; display: grid; place-items: center; font-size: 46px; font-weight: 800; color: rgba(255, 255, 255, .9); background: linear-gradient(135deg, #1d5fa8, #12968a); }
+.room-img { height: 190px; display: grid; place-items: center; font-size: 46px; font-weight: 800; color: rgba(255, 255, 255, .9); background: linear-gradient(135deg, #1d5fa8, #12968a); }
+.room-photo { position: relative; height: 190px; background: var(--surface-2); }
+.room-photo > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.room-photo .thumbs { position: absolute; inset-inline: 8px; bottom: 8px; display: flex; gap: 6px; overflow-x: auto; }
+.room-photo .thumbs button { flex: 0 0 auto; width: 44px; height: 32px; padding: 0; border: 2px solid rgba(255, 255, 255, .7); border-radius: 6px; overflow: hidden; cursor: pointer; background: none; opacity: .85; }
+.room-photo .thumbs button.active, .room-photo .thumbs button:hover { border-color: #fff; opacity: 1; }
+.room-photo .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.offer-img { width: 150px; height: 100px; object-fit: cover; border-radius: 10px; flex: 0 0 auto; }
+.offer-info { flex: 1 1 220px; }
 .room-body { padding: 14px 16px; }
 .room-body h3 { font-size: 17px; margin-bottom: 4px; }
 .amen { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }

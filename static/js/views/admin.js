@@ -96,22 +96,41 @@ export async function settingsView(el, { ctx, alive }) {
         ${field('Tourism licence no.', 'tourism_license', s.tourism_license)}${check('Require nationality & ID before check-in', 'require_id_at_checkin', s.require_id_at_checkin === '1')}</div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Operations &amp; pricing</h2></div><div class="card-body form-grid">
         ${field('Weekend days (0=Mon … 6=Sun)', 'weekend_days', s.weekend_days)}${field('Weekend rate uplift %', 'weekend_adjust_pct', s.weekend_adjust_pct, 'type="number" step="0.5"')}
-        ${check('Cash payments require an open cashier shift', 'cash_requires_shift', s.cash_requires_shift === '1', 'full')}</div></div>
+        ${check('Cash payments require an open cashier shift', 'cash_requires_shift', s.cash_requires_shift === '1', 'full')}
+        ${check('Run the night audit automatically', 'auto_night_audit', s.auto_night_audit === '1')}${field('Automatic night audit time', 'night_audit_time', s.night_audit_time || '03:00', 'type="time"')}
+        <div class="full small muted">The automatic night audit marks no-shows, saves the day's figures and moves the business date forward.
+          A time before noon closes the previous day; a time after noon closes the same day.</div></div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Guest website</h2></div><div class="card-body form-grid">
         ${check('Online booking enabled', 'online_booking_enabled', s.online_booking_enabled === '1')}${field('Free cancellation until (days before arrival)', 'free_cancellation_days', s.free_cancellation_days, 'type="number" min="0"')}
         ${field('Maximum nights per online booking', 'max_online_nights', s.max_online_nights, 'type="number" min="1"')}</div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Security</h2></div><div class="card-body form-grid">
         ${check('Require two-factor authentication for administrators', 'require_2fa_for_admins', s.require_2fa_for_admins === '1', 'full')}
-        <div class="full small muted">Set up your own 2FA under “My security” before enabling this.</div></div></div>
+        <div class="full small muted">Set up your own 2FA under “My security” before enabling this.</div>
+        ${check('Guests must confirm their e-mail address before using their account', 'require_email_verification', s.require_email_verification !== '0', 'full')}
+        <div class="full small muted">Applies once outgoing e-mail (SMTP) is configured, so confirmation links can be delivered.</div></div></div>
       <div><button class="btn primary">Save settings</button></div></form>
     <div class="card" style="margin-top:16px"><div class="card-head"><h2 class="grow">Backups</h2><button class="btn sm" id="bk">Back up now</button></div>
-      ${table(['File', 'Created', ['Size', 'num']], backups.map((b) => `<tr><td>${esc(b.file)}</td><td>${fmtDateTime(b.created_at)}</td><td class="num">${(b.size / 1024).toFixed(0)} KB</td></tr>`).join(''), 'No backups yet')}
+      ${table(['File', 'Created', ['Size', 'num'], ''], backups.map((b) => `<tr><td>${esc(b.file)}</td><td>${fmtDateTime(b.created_at)}</td><td class="num">${(b.size / 1024).toFixed(0)} KB</td>
+        <td class="actions">${ctx.user.role === 'admin' ? `<button type="button" class="btn sm danger" data-restore="${esc(b.file)}">Restore</button>` : ''}</td></tr>`).join(''), 'No backups yet')}
       <div class="card-body small muted">Automatic backups run every 24 hours by default and the newest 14 are kept. Copy the backup folder to another disk or cloud storage regularly.</div></div>`;
   $('#f', el).addEventListener('submit', async (e) => {
     e.preventDefault();
     if (await guarded(() => PUT('/settings', formValues(e.target)), 'Settings saved')) ctx.refresh();
   });
   $('#bk', el).addEventListener('click', async () => { const r = await guarded(() => POST('/backups')); if (r) { toast('Backup written: ' + r.file, 'success'); ctx.refresh(); } });
+  on(el, '[data-restore]', 'click', async (e, b) => {
+    const r = await modal({ title: 'Restore backup', submit: 'Restore', danger: true,
+      body: `<div class="notice warn">Everything entered after this backup was made will be replaced: reservations, payments, stock and users.
+          The current data is saved as a new backup first, so you can go back.</div>
+        <p style="margin:12px 0"><b>${esc(b.dataset.restore)}</b></p>
+        ${field('Your password (to confirm)', 'password', '', 'type="password" autocomplete="current-password"')}`,
+      onSubmit: (v) => POST('/backups/restore', { file: b.dataset.restore, password: v.password }) });
+    if (!r) return;
+    await modal({ title: 'Backup restored', cancel: 'Sign in again',
+      body: `<p>The data from <b>${esc(r.restored)}</b> is now live. The data it replaced was saved as <b>${esc(r.safety_backup || '—')}</b>.</p>
+        <p>Everyone has to sign in again.</p>` });
+    location.href = '/login';
+  });
 }
 
 export async function auditView(el, { params, alive }) {

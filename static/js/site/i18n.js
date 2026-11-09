@@ -17,6 +17,9 @@ const STRINGS = {
     privacyText: 'Under Egypt’s Personal Data Protection Law (151/2020) you can download the personal data we hold about you or ask us to erase it. Tax invoices are kept anonymously as required by law.',
     roomNo: 'Room', noBookings: 'You have no bookings yet.', requestTypes: 'Request type', message: 'Message', stars: 'Rating', comment: 'Comment',
     thanksReview: 'Thank you for your review!', policy: 'Free cancellation until {d} day(s) before arrival.',
+    verifyTitle: 'Confirm your e-mail address', verifyText: 'We sent a confirmation link to {email}. Open it to start using your account. The link works for 48 hours.',
+    verifyResend: 'Send the link again', verifyDone: 'I have confirmed it', verifySent: 'A new link is on its way.',
+    emailConfirmed: 'Your e-mail address is confirmed. Thank you!',
   },
   ar: {
     lang: 'English', rooms: 'الغرف', reviews: 'التقييمات', account: 'حسابي', signin: 'تسجيل الدخول', signout: 'تسجيل الخروج', register: 'إنشاء حساب',
@@ -35,6 +38,9 @@ const STRINGS = {
     privacyText: 'وفقًا لقانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020 يمكنك تنزيل بياناتك الشخصية أو طلب حذفها. تُحفظ الفواتير الضريبية دون بيانات شخصية كما يقتضي القانون.',
     roomNo: 'الغرفة', noBookings: 'لا توجد حجوزات بعد.', requestTypes: 'نوع الطلب', message: 'الرسالة', stars: 'التقييم', comment: 'تعليق',
     thanksReview: 'شكرًا لتقييمك!', policy: 'إلغاء مجاني حتى {d} يوم قبل الوصول.',
+    verifyTitle: 'أكّد بريدك الإلكتروني', verifyText: 'أرسلنا رابط تأكيد إلى {email}. افتحه لتبدأ استخدام حسابك. الرابط صالح لمدة 48 ساعة.',
+    verifyResend: 'أرسل الرابط مرة أخرى', verifyDone: 'لقد أكّدت بريدي', verifySent: 'رابط جديد في الطريق إليك.',
+    emailConfirmed: 'تم تأكيد بريدك الإلكتروني. شكرًا لك!',
   },
 };
 
