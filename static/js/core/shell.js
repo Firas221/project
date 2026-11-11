@@ -1,6 +1,6 @@
 // Portal shell: session check, role gate, forced security steps, sidebar navigation and hash routing.
 import { GET, POST, loadSession, logout } from './api.js';
-import { $, $$, configure, esc, field, fmtDate, formValues, icon, todayISO, toast } from './ui.js';
+import { $, $$, configure, esc, field, fmtDate, fmtDateTime, formValues, icon, todayISO, toast } from './ui.js';
 import { isArabic, startTranslator, toggleLang } from './i18n.js';
 
 const PORTALS = [
@@ -84,16 +84,56 @@ function renderLayout(cfg, ctx) {
           <button class="btn sm menu-btn" id="menu-btn" aria-label="Menu">☰</button>
           <div class="grow"><b id="top-title"></b></div>
           <span class="muted small" id="top-date">${fmtDate(todayISO(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          <div class="bell-wrap"><button class="btn sm ghost bell" id="bell" aria-label="Notifications" aria-expanded="false">${icon('bell')}<span class="bell-count hidden" id="bell-count"></span></button>
+            <div class="bell-panel hidden" id="bell-panel"></div></div>
           ${cfg.topAction ? `<button class="btn primary sm" id="top-action">${esc(cfg.topAction.label)}</button>` : ''}
         </header>
         <main class="content" id="view" tabindex="-1"></main>
       </div>
     </div>`;
   $('#logout').addEventListener('click', async (e) => { e.preventDefault(); await logout(); location.href = '/login'; });
+  startBell();
   $('#lang-toggle').addEventListener('click', (e) => { e.preventDefault(); toggleLang(); });
   $('#menu-btn').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
   if (cfg.topAction && ctx.can(cfg.topAction.perm)) $('#top-action').addEventListener('click', () => cfg.topAction.run(ctx));
   else if (cfg.topAction) $('#top-action').remove();
+}
+
+/**
+ * The bell: things that need this person's attention — a new guest request, an online booking, a room or
+ * ticket assigned to them. The count is checked every 30 seconds; opening the list does not mark anything
+ * read, following an alert does.
+ */
+function startBell() {
+  const bell = $('#bell');
+  const panel = $('#bell-panel');
+  const count = $('#bell-count');
+  let data = { unread: 0, items: [] };
+  const show = () => {
+    count.textContent = data.unread > 99 ? '99+' : String(data.unread);
+    count.classList.toggle('hidden', !data.unread);
+    if (panel.classList.contains('hidden')) return;
+    panel.innerHTML = `<div class="bell-head"><b>Notifications</b>${data.unread ? '<button type="button" class="btn sm" id="bell-all">Mark all as read</button>' : ''}</div>
+      ${data.items.map((a) => `<a class="bell-item ${a.read ? '' : 'unread'}" href="${esc(a.link || '#')}" data-alert="${a.id}"><b>${esc(a.title)}</b>
+        <span>${esc(a.body)}</span><span class="small muted">${fmtDateTime(a.created_at)}</span></a>`).join('') || '<div class="empty">Nothing new</div>'}`;
+    const all = $('#bell-all', panel);
+    if (all) all.addEventListener('click', async () => { try { data = await POST('/alerts/read'); show(); } catch (e) { /* next check */ } });
+    $$('[data-alert]', panel).forEach((a) => a.addEventListener('click', () => {
+      panel.classList.add('hidden');
+      bell.setAttribute('aria-expanded', 'false');
+      POST('/alerts/read', { id: +a.dataset.alert }).then((d) => { data = d; show(); }).catch(() => {});
+    }));
+  };
+  const check = async () => { if (document.hidden) return; try { data = await GET('/alerts'); show(); } catch (e) { /* signed out or offline */ } };
+  bell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = panel.classList.toggle('hidden') === false;
+    bell.setAttribute('aria-expanded', String(open));
+    if (open) { show(); check(); }
+  });
+  document.addEventListener('click', (e) => { if (!panel.contains(e.target)) { panel.classList.add('hidden'); bell.setAttribute('aria-expanded', 'false'); } });
+  setInterval(check, 30000);
+  check();
 }
 
 class Router {

@@ -1,8 +1,8 @@
 // Guests: profiles, stay history, police guest register (Egypt), privacy export & erasure.
 import { GET, POST, PUT, DEL, qs } from '../core/api.js';
 import {
-  $, PAGE_SIZE, badge, bindPager, bindRowLinks, check, confirmBox, esc, field, fmtDate, guarded, label, modal, money, pager,
-  selectField, table, textField, toast, todayISO, vip,
+  $, PAGE_SIZE, badge, bindPager, bindRowLinks, check, confirmBox, esc, field, fileToBase64, fmtDate, fmtDateTime, guarded, label,
+  modal, money, on, pager, selectField, shrinkImage, table, textField, toast, todayISO, vip,
 } from '../core/ui.js';
 
 const ID_TYPES = [['passport', 'Passport'], ['national_id', 'Egyptian national ID'], ['driving_license', 'Driving licence'], ['other', 'Other']];
@@ -69,7 +69,14 @@ export async function guestView(el, { args, ctx, alive }) {
         <dt>Phone</dt><dd>${esc(g.phone) || '—'}</dd><dt>Address</dt><dd>${esc(g.address) || '—'}</dd>
         <dt>Language for e-mails</dt><dd>${g.language === 'ar' ? 'العربية' : 'English'}</dd>
         <dt>Privacy notice</dt><dd>${g.privacy_accepted_at ? 'Accepted ' + fmtDate(g.privacy_accepted_at) : '—'}</dd>
-        <dt>Marketing</dt><dd>${g.marketing_consent ? 'Consented' : 'No consent'}</dd><dt>Notes</dt><dd class="pre">${esc(g.notes) || '—'}</dd></dl></div></div></div>`;
+        <dt>Marketing</dt><dd>${g.marketing_consent ? 'Consented' : 'No consent'}</dd><dt>Notes</dt><dd class="pre">${esc(g.notes) || '—'}</dd></dl></div>
+        <div class="card-head"><h2 class="grow">ID documents</h2>${ctx.can('guests.manage') && !erased ? '<button class="btn sm" id="add-doc">+ Add scan</button>' : ''}</div>
+        <div class="card-body" id="docs">${g.documents.map((doc) => `<div class="line-item"><a href="/api/guests/${g.id}/documents/${doc.id}" target="_blank" rel="noopener">
+            ${esc(ID_TYPES.find(([k]) => k === doc.kind)?.[1] || label(doc.kind))}${doc.content_type === 'application/pdf' ? ' (PDF)' : ''}</a>
+            <span class="small muted">${fmtDateTime(doc.created_at)}${doc.uploaded_by_name ? ' · ' + esc(doc.uploaded_by_name) : ''}</span>
+            ${ctx.can('guests.manage') ? `<button class="btn sm ghost danger" data-del-doc="${doc.id}" title="Delete document" aria-label="Delete document">✕</button>` : ''}</div>`).join('')
+          || '<div class="small muted">No scans on file.</div>'}
+          <div class="small muted" style="margin-top:8px">Only staff who may view guests can open these, and every viewing is recorded in the audit log.</div></div></div></div>`;
   bindRowLinks(el);
   const b = (id, fn) => { const x = $(id, el); if (x) x.addEventListener('click', fn); };
   b('#edit', async () => { if (await guestForm(g)) ctx.refresh(); });
@@ -81,6 +88,22 @@ export async function guestView(el, { args, ctx, alive }) {
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = `guest-${g.id}-data.json`;
     a.click();
+  });
+  b('#add-doc', async () => {
+    const ok = await modal({ title: 'Add ID scan', submit: 'Upload',
+      body: `<div class="stack">${selectField('Document', 'kind', ID_TYPES, g.id_type || 'passport')}
+        <label class="field"><span>File (photo or PDF, up to 1.5 MB) *</span><input type="file" name="file" accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>`,
+      onSubmit: async (v, m) => {
+        const file = $('input[type=file]', m).files[0];
+        if (!file) throw new Error('Choose a file to upload');
+        const data = file.type === 'application/pdf' ? await fileToBase64(file) : await shrinkImage(file, 2000);
+        return POST(`/guests/${g.id}/documents`, { kind: v.kind, data });
+      } });
+    if (ok) { toast('Document saved', 'success'); ctx.refresh(); }
+  });
+  on(el, '[data-del-doc]', 'click', async (e, btn) => {
+    if (await confirmBox('Delete document', 'Delete this scan? It cannot be recovered.', 'Delete')
+      && await guarded(() => DEL(`/guests/${g.id}/documents/${btn.dataset.delDoc}`), 'Document deleted')) ctx.refresh();
   });
   b('#delete', async () => {
     if (!(await confirmBox('Delete guest', 'Delete this guest profile? Only profiles with no reservations and no online account can be deleted.', 'Delete'))) return;

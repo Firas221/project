@@ -107,6 +107,27 @@ export function table(head, rowsHtml, empty = 'Nothing here yet') {
   }).join('')}</tr></thead><tbody>${rowsHtml || emptyRow(head.length, empty)}</tbody></table></div>`;
 }
 
+// ------------------------------------------------------------------ files
+/** Shrinks a picture in the browser (longest edge 1600 px, JPEG) so uploads stay small and fast. Returns base64. */
+export async function shrinkImage(file, maxEdge = 1600) {
+  const img = await createImageBitmap(file);
+  const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+}
+/** A file's bytes as base64, unchanged (for PDFs). */
+export function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(new Error('The file could not be read'));
+    reader.readAsDataURL(file);
+  });
+}
+
 // ------------------------------------------------------------------ paging
 export const PAGE_SIZE = 50;
 /** Previous / next controls under a list. `p` is what the API returns for ?page=: {page, pages, total}. */

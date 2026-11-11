@@ -2,6 +2,23 @@
 from .base import BaseRepository, QueryBuilder, page_of
 
 
+class GuestDocumentRepository(BaseRepository):
+    """Scans of ID documents. The image bytes are only read when one document is opened."""
+    table = "guest_documents"
+    columns = ("guest_id", "kind", "content_type", "data", "uploaded_by")
+    select_sql = ("SELECT t.id, t.guest_id, t.kind, t.content_type, length(t.data) AS size, t.created_at,"
+                  " u.full_name AS uploaded_by_name FROM guest_documents t LEFT JOIN users u ON u.id = t.uploaded_by")
+    default_order = "t.id"
+    entity_label = "Document"
+
+    def for_guest(self, guest_id: int) -> list:
+        return self.fetch_all(self.select_sql + " WHERE t.guest_id = ? ORDER BY t.id", (guest_id,))
+
+    def content(self, doc_id: int):
+        row = self.conn.execute("SELECT guest_id, content_type, data FROM guest_documents WHERE id = ?", (doc_id,)).fetchone()
+        return (row["guest_id"], row["content_type"], bytes(row["data"])) if row else None
+
+
 class GuestRepository(BaseRepository):
     table = "guests"
     columns = ("first_name", "last_name", "email", "phone", "address", "nationality", "id_type", "id_number",

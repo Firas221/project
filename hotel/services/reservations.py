@@ -174,6 +174,9 @@ class ReservationService(Service):
             rate_note=rate_note, special_requests=v["special_requests"], notes="" if online else v["notes"],
             created_by=self.actor_id, **self._plan_fields(plan))
         self.audit("reservation_create", "reservation", rid, f"{code} room {room['number']} {v['check_in']}→{v['check_out']}")
+        if online:
+            self.alert("New online booking", f"{code} · {v['check_in']} → {v['check_out']}", f"#/reservations/{rid}",
+                       permission=Perm.RESERVATIONS_MANAGE)
         if v["deposit"] and not online:
             self.use(BillingService).add_payment(rid, {"amount": v["deposit"], "method": v["deposit_method"],
                                                        "reference": "Deposit"})
@@ -316,6 +319,8 @@ class ReservationService(Service):
         self.repos.reservations.update(res["id"], **fields)
         self.audit("reservation_change_online", "reservation", res["id"],
                    f"{res['code']} {res['check_in']}→{res['check_out']} becomes {check_in}→{check_out}, {rt['name']}")
+        self.alert("A guest changed their booking", f"{res['code']} · {check_in} → {check_out}", f"#/reservations/{res['id']}",
+                   permission=Perm.RESERVATIONS_MANAGE)
         updated = self.repos.reservations.get(res["id"])
         guest = self.repos.guests.get(res["guest_id"])
         if guest["email"]:
@@ -397,6 +402,9 @@ class ReservationService(Service):
         if guest["email"]:
             self.use(NotificationService).cancellation(res, guest["email"])
         self.audit("reservation_cancel", "reservation", res["id"], f"{res['code']} {'(online)' if online else ''}")
+        if online:
+            self.alert("A guest cancelled their booking", f"{res['code']} · {res['check_in']} → {res['check_out']}",
+                       f"#/reservations/{res['id']}", permission=Perm.RESERVATIONS_MANAGE)
         return self.detail(res["id"])
 
     def no_show(self, reservation_id: int, fee: float = 0, *, system: bool = False) -> dict:

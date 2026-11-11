@@ -62,7 +62,8 @@ class HotelApp:
                         self.backups.run()
                 except Exception:
                     log.exception("Automatic backup failed")
-            for job in (self.run_scheduled_night_audit, self.run_scheduled_stayover_tasks, self.send_arrival_reminders):
+            for job in (self.run_scheduled_night_audit, self.run_scheduled_stayover_tasks, self.send_arrival_reminders,
+                        self.purge_old_alerts):
                 try:
                     job()
                 except Exception:
@@ -144,6 +145,15 @@ class HotelApp:
             log.info("Automatic night audit closed %s", business_date)
             closed.append(business_date)
         return closed
+
+    def purge_old_alerts(self, now: dt.datetime = None) -> None:
+        """Once a day, drops staff alerts older than 30 days."""
+        today = (now or dt.datetime.now()).date().isoformat()
+        if getattr(self, "_alerts_purged_on", None) == today:
+            return
+        with self.db.unit_of_work(write=True) as conn:
+            Repositories(conn).alerts.purge(add_days(today, -30))
+        self._alerts_purged_on = today
 
     # ------------------------------------------------------------ restore
     def restore_backup(self, path: str) -> dict:

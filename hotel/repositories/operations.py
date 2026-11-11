@@ -44,6 +44,45 @@ class HousekeepingTaskRepository(BaseRepository):
             " GROUP BY u.id ORDER BY done DESC", (date_from, date_to))
 
 
+class AlertRepository(BaseRepository):
+    """In-app alerts for staff (the bell in the portals)."""
+    table = "staff_alerts"
+    columns = ("user_id", "permission", "title", "body", "link", "actor_id")
+
+    def _visible(self, user_id: int, permissions) -> tuple:
+        perms = sorted(permissions)
+        marks = ",".join("?" for _ in perms) or "''"
+        # alerts for me, or for a permission I hold; never my own actions, never older than my account
+        where = (f"(a.user_id = ? OR (a.user_id IS NULL AND a.permission IN ({marks})))"
+                 " AND (a.actor_id IS NULL OR a.actor_id <> ?)"
+                 " AND a.created_at >= (SELECT created_at FROM users WHERE id = ?)")
+        return where, [user_id, *perms, user_id, user_id]
+
+    def recent(self, user_id: int, permissions, limit: int = 30) -> list:
+        where, args = self._visible(user_id, permissions)
+        return self.fetch_all(
+            "SELECT a.id, a.title, a.body, a.link, a.created_at, (r.user_id IS NOT NULL) AS read FROM staff_alerts a"
+            f" LEFT JOIN staff_alert_reads r ON r.alert_id = a.id AND r.user_id = ? WHERE {where} ORDER BY a.id DESC LIMIT ?",
+            [user_id, *args, limit])
+
+    def unread_count(self, user_id: int, permissions) -> int:
+        where, args = self._visible(user_id, permissions)
+        return self.scalar(
+            f"SELECT COUNT(*) FROM staff_alerts a WHERE {where}"
+            " AND NOT EXISTS (SELECT 1 FROM staff_alert_reads r WHERE r.alert_id = a.id AND r.user_id = ?)", [*args, user_id], 0)
+
+    def mark_read(self, user_id: int, permissions, alert_id: int = None) -> None:
+        where, args = self._visible(user_id, permissions)
+        sql = f"INSERT OR IGNORE INTO staff_alert_reads(alert_id, user_id) SELECT a.id, ? FROM staff_alerts a WHERE {where}"
+        if alert_id:
+            sql += " AND a.id = ?"
+            args = [*args, alert_id]
+        self.execute(sql, [user_id, *args])
+
+    def purge(self, before: str) -> None:
+        self.execute("DELETE FROM staff_alerts WHERE created_at < ?", (before,))
+
+
 class MaintenanceRepository(BaseRepository):
     table = "maintenance_tickets"
     columns = ("code", "room_id", "location", "title", "description", "priority", "status", "out_of_order",

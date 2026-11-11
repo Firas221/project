@@ -266,6 +266,8 @@ class StockRequestService(Service):
                 raise ValidationError(f"{item['name']} is no longer stocked")
             self.repos.stock_requests.add_line(rid, item["id"], line["quantity"])
         self.audit("supply_request", "stock_request", rid, v["department"])
+        self.alert("New supply request", f"{self.actor.full_name} ({v['department'].replace('_', ' ')})",
+                   "#/inventory?tab=requests", permission=Perm.INVENTORY_APPROVE)
         return self._get(rid)
 
     def _get(self, rid):

@@ -1,7 +1,7 @@
 // Administration: users, role permission matrix, hotel settings, audit log, e-mail outbox, sessions, backups.
-import { GET, POST, PUT, qs } from '../core/api.js';
+import { DEL, GET, POST, PUT, qs } from '../core/api.js';
 import {
-  $, $$, PAGE_SIZE, badge, bindPager, check, esc, field, fmtDate, fmtDateTime, formValues, guarded, label, modal, on, options,
+  $, $$, PAGE_SIZE, badge, bindPager, check, confirmBox, esc, field, fmtDate, fmtDateTime, formValues, guarded, label, modal, on, options,
   pager, selectField, showSecret, table, toast,
 } from '../core/ui.js';
 
@@ -53,9 +53,15 @@ export async function usersView(el, { params, ctx, alive }) {
     await modal({ title: 'Security — ' + u.username, cancel: 'Close',
       body: `<div class="stack"><button type="button" class="btn" data-a="reset-password">Reset password (one-time password)</button>
         <button type="button" class="btn" data-a="unlock">Unlock account</button><button type="button" class="btn" data-a="revoke-sessions">Sign out of all devices</button>
-        ${u.totp_enabled ? '<button type="button" class="btn danger" data-a="reset-2fa">Reset two-factor authentication</button>' : ''}</div>`,
+        ${u.totp_enabled ? '<button type="button" class="btn danger" data-a="reset-2fa">Reset two-factor authentication</button>' : ''}
+        ${u.role !== 'guest' && u.id !== ctx.user.id ? '<button type="button" class="btn danger" data-a="delete">Delete user</button>' : ''}</div>`,
       onOpen: (m) => $$('[data-a]', m).forEach((x) => x.addEventListener('click', () => { act = x.dataset.a; $('[data-close]', m).click(); })) });
     if (!act) return;
+    if (act === 'delete') {
+      if (await confirmBox('Delete user', `Delete <b>${esc(u.username)}</b> for good? Work they recorded stays, without their name. To keep the account but block sign-in, edit the user and untick “Account active” instead.`, 'Delete')
+        && await guarded(() => DEL('/users/' + u.id), 'User deleted')) ctx.refresh();
+      return;
+    }
     const r = await guarded(() => POST(`/users/${u.id}/${act}`));
     if (r && r.temporary_password) await showSecret('Password reset', `New one-time password for <b>${esc(u.username)}</b>:`, r.temporary_password);
     else if (r) toast('Done', 'success');

@@ -58,6 +58,16 @@ class Service:
         self.repos.audit.insert(user_id=a.id if a else None, username=a.username if a else "", action=action,
                                 entity=entity, entity_id=entity_id, details=str(details)[:1000], ip=self.ctx.ip)
 
+    def alert(self, title: str, body: str = "", link: str = "", *, permission: str = "", user_id: int = None) -> None:
+        """Puts a line under the bell of one person (user_id), or of everyone who holds a permission.
+        The person who caused it never sees their own alert."""
+        if not permission and not user_id:
+            return
+        if user_id and user_id == self.actor_id:
+            return
+        self.repos.alerts.insert(user_id=user_id, permission="" if user_id else permission, title=title[:120],
+                                 body=str(body)[:300], link=link[:200], actor_id=self.actor_id)
+
     def settings(self) -> dict:
         return self.repos.settings.as_dict()
 

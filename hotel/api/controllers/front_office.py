@@ -1,11 +1,17 @@
 """Front office: dashboard, reservations, guests, rooms, pricing, billing, cashier, companies."""
 from ...core.clock import today_iso
 from ...core.errors import PermissionDenied
+from ...http.messages import Binary
 from ...core.permissions import Perm
 from ...core.validation import Bool, Int, Number
 from ...services import (BillingService, CashierService, CompanyService, DashboardService, GuestService,
                          InvoiceService, PricingService, PrivacyService, ReservationService, RoomService)
 from ..router import Controller, delete, get, post, put
+from ..router import delete as delete_route  # for classes that have a method called delete
+
+
+# A 1.5 MB image is about 2 MB once base64-encoded inside JSON.
+PHOTO_UPLOAD_LIMIT = 2_200_000
 
 
 class DashboardController(Controller):
@@ -150,14 +156,24 @@ class GuestController(Controller):
     def erase(self, guest_id):
         return self.svc(PrivacyService).anonymize_guest(guest_id)
 
+    @post("/guests/{guest_id}/documents", perm=Perm.GUESTS_MANAGE, max_body=PHOTO_UPLOAD_LIMIT)
+    def add_document(self, guest_id):
+        doc = self.svc(GuestService).add_document(guest_id, self.body.get("kind"), self.body.get("data"))
+        return {**doc, "_created": True}
+
+    @get("/guests/{guest_id}/documents/{doc_id}", perm=Perm.GUESTS_VIEW)
+    def document(self, guest_id, doc_id):
+        content_type, data = self.svc(GuestService).document(guest_id, doc_id)
+        return Binary(data, content_type)          # never cached: Cache-Control stays "no-store"
+
+    @delete_route("/guests/{guest_id}/documents/{doc_id}", perm=Perm.GUESTS_MANAGE)
+    def delete_document(self, guest_id, doc_id):
+        self.svc(GuestService).delete_document(guest_id, doc_id)
+
     @get("/guest-register", perm=Perm.GUESTS_VIEW)
     def register(self):
         return self.svc(GuestService).registration_report(self.q("date") or today_iso(),
                                                           foreign_only=not self.flag("all"))
-
-
-# A 1.5 MB image is about 2 MB once base64-encoded inside JSON.
-PHOTO_UPLOAD_LIMIT = 2_200_000
 
 
 class RoomController(Controller):

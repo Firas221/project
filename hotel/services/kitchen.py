@@ -126,6 +126,8 @@ class OrderService(Service):
         for m, line in lines:
             self.repos.orders.add_line(oid, m["id"], m["name"], line["quantity"], m["price"], line["notes"])
         self.audit("order_place", "order", oid, f"{res['code']} {total:.2f}")
+        self.alert("New room-service order", f"Room {res['room_number']}: " + ", ".join(f"{ln['quantity']:g} × {m['name']}" for m, ln in lines),
+                   "#/orders", permission=Perm.KITCHEN_ORDERS)
         return self.detail(oid)
 
     def advance(self, order_id: int, status: str) -> dict:

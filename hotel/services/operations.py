@@ -67,6 +67,9 @@ class HousekeepingService(Service):
         v["due_date"] = v["due_date"] or today_iso()
         tid = self.repos.housekeeping.insert(**v, created_by=self.actor_id)
         self.audit("task_create", "housekeeping_task", tid, v["kind"])
+        if v.get("assigned_to"):
+            room = self.repos.rooms.get(v["room_id"])
+            self.alert("A room was assigned to you", f"Room {room['number']}", "#/tasks", user_id=v["assigned_to"])
         return self.repos.housekeeping.get(tid)
 
     def _check_housekeeper(self, user_id):
@@ -81,6 +84,8 @@ class HousekeepingService(Service):
             self._check_housekeeper(int(user_id))
         self.repos.housekeeping.update(task_id, assigned_to=int(user_id) if user_id else None)
         self.audit("task_assign", "housekeeping_task", task_id, f"room {task['room_number']} -> {user_id}")
+        if user_id:
+            self.alert("A room was assigned to you", f"Room {task['room_number']}", "#/tasks", user_id=int(user_id))
         return self.repos.housekeeping.get(task_id)
 
     def generate_stayovers(self) -> dict:
@@ -176,6 +181,8 @@ class MaintenanceService(Service):
         if ooo:
             self._take_out_of_order(v["room_id"], v["title"])
         self.audit("ticket_report", "maintenance", tid, v["title"])
+        where = f"Room {self.repos.rooms.get(v['room_id'])['number']}" if v["room_id"] else v["location"]
+        self.alert("New maintenance ticket", f"{where}: {v['title']}", "#/maintenance", permission=Perm.MAINTENANCE_MANAGE)
         return self.repos.maintenance.get(tid)
 
     def _take_out_of_order(self, room_id: int, reason: str) -> None:
@@ -215,6 +222,8 @@ class MaintenanceService(Service):
                                                due_date=today_iso(), notes=f"After repair {t['code']}",
                                                created_by=self.actor_id)
         self.audit("ticket_update", "maintenance", ticket_id, f"{t['code']} {fields}")
+        if fields.get("assigned_to") and fields["assigned_to"] != t["assigned_to"]:
+            self.alert("A ticket was assigned to you", f"{t['code']}: {t['title']}", "#/maintenance", user_id=fields["assigned_to"])
         return self.repos.maintenance.get(ticket_id)
 
 
@@ -232,6 +241,7 @@ class GuestRequestService(Service):
         if not message:
             raise ValidationError("Message is required")
         rid = self.repos.guest_requests.insert(reservation_id=res["id"], kind=kind, message=message)
+        self.alert("New guest request", f"Room {res['room_number']}: {message[:120]}", "#/requests", permission=Perm.REQUESTS_MANAGE)
         # route operational requests straight to the right department
         if kind == "housekeeping" and not self.repos.housekeeping.open_for_room(res["room_id"], "guest_request"):
             self.repos.housekeeping.insert(room_id=res["room_id"], kind="guest_request", priority="high",

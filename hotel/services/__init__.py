@@ -3,7 +3,7 @@
 Each service is instantiated per request via ``ctx.service(ServiceClass)`` so that
 collaborating services share one transaction.
 """
-from .admin import AuditService, PrivacyService, RoleService, SettingsService, UserAdminService
+from .admin import AlertService, AuditService, PrivacyService, RoleService, SettingsService, UserAdminService
 from .auth import AuthService
 from .base import Service, ServiceContext
 from .billing import BillingService, CashierService, CompanyService, InvoiceService, TaxCalculator
@@ -18,7 +18,7 @@ from .reports import DashboardService, NightAuditService, ReportService
 from .reservations import ReservationService
 
 __all__ = [
-    "AuditService", "AuthService", "BillingService", "CashierService", "CompanyService", "DashboardService",
+    "AlertService", "AuditService", "AuthService", "BillingService", "CashierService", "CompanyService", "DashboardService",
     "GuestPortalService", "GuestRequestService", "GuestService", "HousekeepingService", "InventoryService",
     "InvoiceService", "LostFoundService", "MaintenanceService", "MenuService", "NightAuditService",
     "NotificationService", "OrderService", "PricingService", "PrivacyService", "PublicService", "PurchasingService",

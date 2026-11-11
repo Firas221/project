@@ -1,7 +1,7 @@
 // Rooms, room types & rates, seasonal pricing and promo codes.
 import { DEL, GET, POST, PUT } from '../core/api.js';
 import {
-  $, MEAL_PLANS, badge, check, confirmBox, esc, field, fmtDate, guarded, mealLabel, modal, money, on, selectField, table, toast,
+  $, MEAL_PLANS, badge, check, confirmBox, esc, field, fmtDate, guarded, mealLabel, modal, money, on, selectField, shrinkImage, table, toast,
 } from '../core/ui.js';
 
 export async function roomsView(el, { params, ctx, alive }) {
@@ -133,19 +133,6 @@ export async function roomsView(el, { params, ctx, alive }) {
 }
 
 // ------------------------------------------------------------------ room-type photos
-const PHOTO_MAX_EDGE = 1600;
-
-/** Shrinks a picture in the browser (longest edge 1600 px, JPEG) so uploads stay small and fast. */
-async function shrinkImage(file) {
-  const img = await createImageBitmap(file);
-  const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(img.width, img.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-}
-
 async function photosDialog(type) {
   let photos = type.photos.slice();
   await modal({

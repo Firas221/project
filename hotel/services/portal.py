@@ -244,6 +244,7 @@ class GuestPortalService(Service):
         comment = Str("Comment", max_len=2000, multiline=True).clean(comment or "") if comment else ""
         self.repos.reviews.insert(reservation_id=res["id"], rating=rating, comment=comment)
         self.audit("review_submit", "reservation", res["id"], f"{rating} stars")
+        self.alert("New guest review", f"{res['guest_name']}: {rating} / 5", "#/reviews", permission=Perm.REVIEWS_MANAGE)
         return {"ok": True}
 
     def public_reviews(self):

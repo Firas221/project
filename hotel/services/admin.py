@@ -92,6 +92,26 @@ class UserAdminService(Service):
         self.audit("user_update", "user", user_id, f"{user['username']}: role={v['role']} active={v['active']}")
         return self.repos.users.get(user_id)
 
+    def delete(self, user_id: int) -> None:
+        """Removes a staff account for good. Work they recorded stays, shown without a name; the audit log keeps
+        their username. Accounts with cashier shifts or supply requests on record can only be deactivated."""
+        self.require(Perm.USERS_MANAGE)
+        user = self.repos.users.require(user_id, "User")
+        if user["role"] == Role.GUEST:
+            raise ValidationError("Guest accounts are managed from the guest profile")
+        if user_id == self.actor_id:
+            raise ValidationError("You cannot delete your own account")
+        if user["role"] == Role.ADMIN and user["active"] and self.repos.users.count_active_admins(exclude_id=user_id) == 0:
+            raise ValidationError("At least one active administrator is required")
+        kept = [label for label, sql in (
+            ("cashier shifts", "SELECT 1 FROM cashier_shifts WHERE user_id=? LIMIT 1"),
+            ("supply requests", "SELECT 1 FROM stock_requests WHERE requested_by=? LIMIT 1"),
+        ) if self.repos.users.scalar(sql, (user_id,)) is not None]
+        if kept:
+            raise Conflict(f"This user has {' and '.join(kept)} on record and cannot be deleted. Deactivate the account instead.")
+        self.repos.users.delete(user_id)
+        self.audit("user_delete", "user", user_id, f"{user['username']} ({user['role']})")
+
     def reset_password(self, user_id: int) -> dict:
         self.require(Perm.USERS_MANAGE)
         user = self.repos.users.require(user_id, "User")
@@ -184,6 +204,21 @@ class SettingsService(Service):
         return self.settings()
 
 
+class AlertService(Service):
+    """The bell in the staff portals."""
+
+    def _perms(self):
+        return ALL_PERMISSIONS if self.actor.is_admin else self.actor.permissions
+
+    def recent(self) -> dict:
+        return {"unread": self.repos.alerts.unread_count(self.actor.id, self._perms()),
+                "items": self.repos.alerts.recent(self.actor.id, self._perms())}
+
+    def mark_read(self, alert_id: int = None) -> dict:
+        self.repos.alerts.mark_read(self.actor.id, self._perms(), alert_id)
+        return self.recent()
+
+
 class AuditService(Service):
     def search(self, **filters) -> list:
         self.require(Perm.AUDIT_VIEW)
@@ -211,6 +246,8 @@ class PrivacyService(Service):
             "reservations": [{k: r[k] for k in ("code", "check_in", "check_out", "room_type", "status", "rate", "source",
                                                 "special_requests")} for r in reservations],
             "charges": [], "payments": [], "requests": [], "reviews": [],
+            "id_documents": [{"kind": doc["kind"], "uploaded": doc["created_at"], "size_bytes": doc["size"]}
+                             for doc in self.repos.guest_documents.for_guest(guest_id)],
         }
         for r in reservations:
             data["charges"] += [{"reservation": r["code"], "description": c["description"], "amount": c["amount"],
@@ -236,6 +273,7 @@ class PrivacyService(Service):
         self.repos.guests.update(guest_id, first_name="Erased", last_name=f"Guest #{guest_id}", email="", phone="",
                                  address="", id_number="", date_of_birth="", notes="", nationality=g["nationality"],
                                  marketing_consent=0, anonymized_at=now_str())
+        self.repos.guests.execute("DELETE FROM guest_documents WHERE guest_id=?", (guest_id,))
         self.repos.guests.execute("UPDATE guest_requests SET message='(erased)' WHERE reservation_id IN"
                            " (SELECT id FROM reservations WHERE guest_id=?)", (guest_id,))
         self.repos.guests.execute("UPDATE reservations SET special_requests='', notes='' WHERE guest_id=?", (guest_id,))

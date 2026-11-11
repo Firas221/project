@@ -8,9 +8,9 @@ from ...core.clock import today_iso
 from ...core.errors import NotFound, PermissionDenied, ValidationError
 from ...core.permissions import Perm
 from ...http.messages import Download
-from ...services import (AuditService, GuestService, InventoryService, NightAuditService, ReportService,
+from ...services import (AlertService, AuditService, GuestService, InventoryService, NightAuditService, ReportService,
                          ReservationService, RoleService, SettingsService, UserAdminService)
-from ..router import Controller, get, post, put
+from ..router import Controller, delete, get, post, put
 
 
 log = logging.getLogger("hotel.admin")
@@ -47,6 +47,10 @@ class UserController(Controller):
     def update(self, user_id):
         return self.svc(UserAdminService).update(user_id, self.body)
 
+    @delete("/users/{user_id}", perm=Perm.USERS_MANAGE)
+    def delete(self, user_id):
+        self.svc(UserAdminService).delete(user_id)
+
     @post("/users/{user_id}/reset-password", perm=Perm.USERS_MANAGE)
     def reset_password(self, user_id):
         return self.svc(UserAdminService).reset_password(user_id)
@@ -66,6 +70,17 @@ class UserController(Controller):
     @get("/sessions", perm=Perm.USERS_MANAGE)
     def sessions(self):
         return self.svc(UserAdminService).active_sessions()
+
+
+class AlertController(Controller):
+    @get("/alerts")
+    def recent(self):
+        return self.svc(AlertService).recent()
+
+    @post("/alerts/read")
+    def read(self):
+        alert_id = self.body.get("id")
+        return self.svc(AlertService).mark_read(int(alert_id) if str(alert_id or "").isdigit() else None)
 
 
 class RoleController(Controller):

@@ -14,6 +14,7 @@ MEAL_PLANS = ("room_only", "breakfast", "half_board", "full_board")
 LANGUAGES = ("", "en", "ar")
 MAX_PHOTO_BYTES = 1_500_000
 MAX_PHOTOS_PER_TYPE = 8
+MAX_DOCUMENTS_PER_GUEST = 6
 
 
 def sniff_image(data: bytes):
@@ -110,6 +111,7 @@ class GuestService(Service):
         for r in g["reservations"]:
             r["total"] = billing.folio(r)["total"]
         g["lifetime_value"] = money(sum(r["total"] for r in g["reservations"] if r["status"] != "cancelled"))
+        g["documents"] = self.repos.guest_documents.for_guest(guest_id)
         return g
 
     def create(self, data: dict) -> dict:
@@ -138,6 +140,54 @@ class GuestService(Service):
             raise Conflict("Guests with reservations or an online account cannot be deleted; use 'Erase personal data'")
         self.repos.guests.delete(guest_id)
         self.audit("guest_delete", "guest", guest_id, f"{g['first_name']} {g['last_name']}")
+
+    # ---- scans of ID documents (passport, national ID)
+    def documents(self, guest_id: int) -> list:
+        self.require(Perm.GUESTS_VIEW)
+        self.repos.guests.require(guest_id, "Guest")
+        return self.repos.guest_documents.for_guest(guest_id)
+
+    def add_document(self, guest_id: int, kind: str, encoded) -> dict:
+        self.require(Perm.GUESTS_MANAGE)
+        g = self.repos.guests.require(guest_id, "Guest")
+        if g["anonymized_at"]:
+            raise Conflict("This guest's personal data was erased and cannot be edited")
+        if kind not in ID_TYPES:
+            raise ValidationError("Choose the type of document", field="kind")
+        if not isinstance(encoded, str) or not encoded:
+            raise ValidationError("Choose a file to upload", field="data")
+        try:
+            data = base64.b64decode(encoded.split(",", 1)[-1], validate=True)
+        except (binascii.Error, ValueError):
+            raise ValidationError("The file could not be read", field="data")
+        ctype = sniff_image(data) or ("application/pdf" if data[:5] == b"%PDF-" else None)
+        if not ctype:
+            raise ValidationError("ID scans must be JPEG, PNG or WebP images, or a PDF", field="data")
+        if len(data) > MAX_PHOTO_BYTES:
+            raise ValidationError("The file is too large (maximum 1.5 MB)", field="data")
+        if self.repos.guest_documents.count(guest_id=guest_id) >= MAX_DOCUMENTS_PER_GUEST:
+            raise Conflict(f"A guest can have up to {MAX_DOCUMENTS_PER_GUEST} documents. Delete one first.")
+        did = self.repos.guest_documents.insert(guest_id=guest_id, kind=kind, content_type=ctype, data=data,
+                                                uploaded_by=self.actor_id)
+        self.audit("guest_document_add", "guest", guest_id, f"{kind} #{did} ({len(data) // 1024} KB)")
+        return self.repos.guest_documents.get(did)
+
+    def document(self, guest_id: int, doc_id: int):
+        """The file itself. Every viewing is written to the audit log."""
+        self.require(Perm.GUESTS_VIEW)
+        found = self.repos.guest_documents.content(doc_id)
+        if not found or found[0] != guest_id:
+            raise NotFound("Document not found")
+        self.audit("guest_document_view", "guest", guest_id, f"#{doc_id}")
+        return found[1], found[2]
+
+    def delete_document(self, guest_id: int, doc_id: int) -> None:
+        self.require(Perm.GUESTS_MANAGE)
+        doc = self.repos.guest_documents.get(doc_id)
+        if not doc or doc["guest_id"] != guest_id:
+            raise NotFound("Document not found")
+        self.repos.guest_documents.delete(doc_id)
+        self.audit("guest_document_delete", "guest", guest_id, f"{doc['kind']} #{doc_id}")
 
     def registration_report(self, day: str, foreign_only: bool = True) -> list:
         """Daily guest register for the authorities (arrivals and in-house guests)."""

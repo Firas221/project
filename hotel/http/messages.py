@@ -66,6 +66,8 @@ class Binary:
 
     def to_response(self) -> Response:
         r = Response(200, self.content, self.content_type)
+        if self.content_type == "application/pdf":
+            r.headers.append(("Content-Disposition", 'attachment; filename="document.pdf"'))
         if self.max_age:
             r.headers.append(("Cache-Control", f"public, max-age={int(self.max_age)}, immutable"))
         return r
