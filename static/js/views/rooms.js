@@ -39,7 +39,8 @@ export async function roomsView(el, { params, ctx, alive }) {
   } else if (tab === 'types') {
     if (admin) actions.innerHTML = '<button class="btn primary" id="add">+ New room type</button>';
     body.innerHTML = `<div class="card">${table(['Name', 'Bed', ['Size', 'num'], ['Guests', 'num'], ['Base rate / night', 'num'], ['Rooms', 'num'], 'Status', ''], types.map((t) => `
-      <tr><td><b>${esc(t.name)}</b><div class="small muted">${esc(t.amenities)}</div></td><td>${esc(t.bed_type)}</td><td class="num">${t.size_sqm || '—'} m²</td>
+      <tr><td><b>${esc(t.name)}</b><div class="small muted">${esc(t.amenities)}</div>
+        ${t.max_extra_beds ? `<div class="small muted">Extra beds: ${t.max_extra_beds} × ${money(t.extra_bed_rate)}</div>` : ''}</td><td>${esc(t.bed_type)}</td><td class="num">${t.size_sqm || '—'} m²</td>
       <td class="num">${t.capacity}</td><td class="num">${money(t.base_rate)}</td><td class="num">${t.room_count}</td><td>${t.active ? badge('clean', 'Selling') : badge('closed', 'Hidden')}</td>
       <td class="actions">${admin ? `<button class="btn sm" data-photos="${t.id}">Photos (${t.photos.length})</button> <button class="btn sm" data-edit="${t.id}">Edit</button>
         <button class="btn sm ghost danger" data-del-type="${t.id}" title="Delete room type" aria-label="Delete room type">✕</button>` : ''}</td></tr>`).join(''))}</div>
@@ -48,6 +49,7 @@ export async function roomsView(el, { params, ctx, alive }) {
       const ok = await modal({ title: t.id ? 'Edit room type' : 'New room type',
         body: `<div class="form-grid">${field('Name *', 'name', t.name, '', 'full')}${field('Base rate / night *', 'base_rate', t.base_rate, 'type="number" step="0.01" min="0"')}
           ${field('Max guests *', 'capacity', t.capacity || 2, 'type="number" min="1"')}${field('Bed type', 'bed_type', t.bed_type)}${field('Size (m²)', 'size_sqm', t.size_sqm || '', 'type="number" min="0"')}
+          ${field('Extra beds allowed', 'max_extra_beds', t.max_extra_beds ?? 0, 'type="number" min="0" max="4"')}${field('Extra bed rate / night', 'extra_bed_rate', t.extra_bed_rate ?? 0, 'type="number" step="0.01" min="0"')}
           ${field('Description', 'description', t.description, '', 'full')}${field('Amenities', 'amenities', t.amenities, '', 'full')}${check('Available for sale', 'active', t.id ? t.active : true)}</div>`,
         onSubmit: (v) => (t.id ? PUT('/room-types/' + t.id, v) : POST('/room-types', v)) });
       if (ok) { toast('Room type saved', 'success'); ctx.refresh(); }

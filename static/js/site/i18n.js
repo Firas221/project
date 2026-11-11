@@ -25,6 +25,7 @@ const STRINGS = {
     changeBooking: 'Change booking', roomType: 'Room type', seePrice: 'See new price', newPrice: 'New price', confirmChange: 'Confirm change',
     changed: 'Your booking has been changed.', promoDropped: 'Your promo code is no longer valid for these dates and was removed.',
     changeNote: 'You can change dates, guests or room type. The price is worked out again at today’s rates.',
+    infants: 'Infants (under {age})', extraBed: 'incl. {n} extra bed(s)', infantsFree: '{n} infant(s), free',
     payAtHotel: 'Payment is taken at the hotel.', minStay: 'Minimum stay', staffLink: 'Staff', emailLanguage: 'E-mails in',
   },
   ar: {
@@ -52,6 +53,7 @@ const STRINGS = {
     changeBooking: 'تعديل الحجز', roomType: 'نوع الغرفة', seePrice: 'عرض السعر الجديد', newPrice: 'السعر الجديد', confirmChange: 'تأكيد التعديل',
     changed: 'تم تعديل حجزك.', promoDropped: 'رمز الخصم لم يعد صالحًا لهذه التواريخ وتمت إزالته.',
     changeNote: 'يمكنك تغيير التواريخ أو عدد النزلاء أو نوع الغرفة. يُعاد حساب السعر بأسعار اليوم.',
+    infants: 'رضّع وصغار (أقل من {age})', extraBed: 'شامل {n} سرير إضافي', infantsFree: '{n} رضيع، مجانًا',
     payAtHotel: 'يتم الدفع في الفندق.', minStay: 'أقل مدة إقامة', staffLink: 'الموظفون', emailLanguage: 'لغة الرسائل',
   },
 };

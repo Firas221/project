@@ -34,6 +34,7 @@ async function init() {
         <label>${t('departure')}<input type="date" name="check_out" value="${addDays(todayISO(), 2)}" required></label>
         <label>${t('adults')}<input type="number" name="adults" value="2" min="1" max="10"></label>
         <label>${t('children')}<input type="number" name="children" value="0" min="0" max="10"></label>
+        <label>${t('infants', { age: s.child_free_age || 6 })}<input type="number" name="infants" value="0" min="0" max="6"></label>
         <label>${t('promo')}<input name="promo_code" placeholder="—" style="text-transform:uppercase"></label>
         <button class="btn primary big">${t('search')}</button></form></div></section>
     <main class="site-main">
@@ -62,7 +63,7 @@ async function init() {
   // resume a booking started before signing in
   const pending = new URLSearchParams(location.hash.slice(1));
   if (pending.get('book') && user && user.role === 'guest') {
-    ['check_in', 'check_out', 'adults', 'children', 'promo_code'].forEach((k) => { if (pending.get(k) !== null) form[k].value = pending.get(k); });
+    ['check_in', 'check_out', 'adults', 'children', 'infants', 'promo_code'].forEach((k) => { if (pending.get(k) !== null) form[k].value = pending.get(k); });
     const offers = await search(Object.fromEntries(new FormData(form)));
     const offer = offers && offers.find((o) => o.id === +pending.get('book'));
     history.replaceState(null, '', '/');
@@ -86,6 +87,7 @@ async function search(q) {
   const withTax = (x) => x * (1 + sc / 100) * (1 + vat / 100);
   box.innerHTML = `<h2>${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}</h2>${r.offers.length ? `<div class="offer-list">${r.offers.map((o) => `
     <article class="offer">${o.photos.length ? `<img class="offer-img" src="/api/public/photos/${o.photos[0]}" alt="${esc(o.name)}" loading="lazy">` : ''}<div class="offer-info"><h3>${esc(o.name)}</h3><div class="small muted">${t('upTo')} ${o.capacity} ${t('guests')} · ${esc(o.bed_type)}</div>
+      ${o.quote.extra_beds ? `<div class="small muted" data-extra-beds>${t('extraBed', { n: o.quote.extra_beds })}</div>` : ''}
       ${o.quote.discount ? `<div class="deal">${esc(o.quote.discount_label)} −${o.quote.discount_pct}%</div>` : ''}
       ${o.quote.nightly.some((n) => n.label) ? `<div class="small muted">${[...new Set(o.quote.nightly.filter((n) => n.label).map((n) => n.label))].map(esc).join(', ')}</div>` : ''}
       ${!o.quote.meets_min_stay ? `<div class="text-bad small">${t('minStay')} ${o.quote.min_nights} ${t('nights')}</div>` : ''}
@@ -128,7 +130,7 @@ async function confirmBooking(offer, q, plan = null) {
     body: `<dl class="kv"><dt>${t('rooms')}</dt><dd>${esc(offer.name)}</dd>
       <dt>${t('chooseRate')}</dt><dd>${esc(plan ? planName(plan) : t('standardRate'))} · ${t(plan ? plan.meal_plan : 'room_only')}${plan && !plan.refundable ? ` · <b class="text-bad">${t('nonRefundable')}</b>` : ''}</dd>
       <dt>${t('arrival')}</dt><dd>${fmtDate(q.check_in)}</dd>
-      <dt>${t('departure')}</dt><dd>${fmtDate(q.check_out)} (${q2.nights} ${t('nights')})</dd><dt>${t('guests')}</dt><dd>${q.adults} + ${q.children}</dd>
+      <dt>${t('departure')}</dt><dd>${fmtDate(q.check_out)} (${q2.nights} ${t('nights')})</dd><dt>${t('guests')}</dt><dd>${q.adults} + ${q.children}${+q.infants ? ` · ${t('infantsFree', { n: +q.infants })}` : ''}${q2.extra_beds ? ` · ${t('extraBed', { n: q2.extra_beds })}` : ''}</dd>
       <dt>${t('subtotal')}</dt><dd>${money(q2.total)}${q2.discount ? ` <span class="small muted">(−${money(q2.discount)})</span>` : ''}</dd>
       <dt>${t('service')} ${sc}%</dt><dd>${money(service)}</dd><dt>${t('vat')} ${vat}%</dt><dd>${money(tax)}</dd>
       <dt><b>${t('total')}</b></dt><dd><b>${money(q2.total + service + tax)}</b></dd></dl>

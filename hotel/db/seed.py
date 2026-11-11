@@ -36,6 +36,7 @@ DEFAULT_SETTINGS = {
     "online_booking_enabled": "1",
     "free_cancellation_days": "2",
     "max_online_nights": "30",
+    "child_free_age": "6",          # children younger than this stay free and need no bed ("infants")
     # security
     "require_2fa_for_admins": "0",
     "require_email_verification": "1",
@@ -131,6 +132,8 @@ class DemoData:
                 password_hash=self.hasher.hash(DEMO_PASSWORDS[username]))
         return ids
 
+    EXTRA_BEDS = {"Deluxe King": (1, 600), "Family Suite": (1, 600), "Presidential Suite": (2, 800)}
+
     def _rooms(self):
         types = [
             ("Standard Single", "Cozy room with a single bed, ideal for solo travellers", 2200, 1, "Single", 16,
@@ -145,7 +148,9 @@ class DemoData:
         ]
         for name, desc, rate, cap, bed, size, amen in types:
             self.r.room_types.insert(name=name, description=desc, base_rate=rate, capacity=cap, bed_type=bed,
-                                     size_sqm=size, amenities=amen)
+                                     size_sqm=size, amenities=amen,
+                                     max_extra_beds=self.EXTRA_BEDS.get(name, (0, 0))[0],
+                                     extra_bed_rate=self.EXTRA_BEDS.get(name, (0, 0))[1])
         layout = [(f"1{n:02d}", 1, 1 if n <= 4 else 2) for n in range(1, 9)]
         layout += [(f"2{n:02d}", 2, 2 if n <= 3 else 3) for n in range(1, 9)]
         layout += [(f"3{n:02d}", 3, 3 if n <= 2 else 4) for n in range(1, 7)]

@@ -5,7 +5,8 @@ from .base import BaseRepository, QueryBuilder
 
 class RoomTypeRepository(BaseRepository):
     table = "room_types"
-    columns = ("name", "description", "base_rate", "capacity", "bed_type", "size_sqm", "amenities", "active")
+    columns = ("name", "description", "base_rate", "capacity", "bed_type", "size_sqm", "amenities", "active", "max_extra_beds",
+               "extra_bed_rate")
     select_sql = ("SELECT t.*, (SELECT COUNT(*) FROM rooms r WHERE r.type_id = t.id) AS room_count"
                   " FROM room_types t")
     default_order = "t.base_rate, t.name"
@@ -47,7 +48,7 @@ class RoomRepository(BaseRepository):
     def select_sql(self):
         # Occupancy is derived from reservations, never stored, so it cannot drift.
         return """
-        SELECT t.*, rt.name AS type_name, rt.base_rate, rt.capacity,
+        SELECT t.*, rt.name AS type_name, rt.base_rate, rt.capacity, rt.max_extra_beds, rt.extra_bed_rate,
           cur.id AS current_reservation_id, cur.check_out AS current_check_out,
           cg.first_name || ' ' || cg.last_name AS current_guest,
           (SELECT a.id FROM reservations a WHERE a.room_id = t.id AND a.status = 'booked' AND a.check_in <= '%s'
@@ -77,11 +78,13 @@ class RoomRepository(BaseRepository):
 
     def available(self, check_in: str, check_out: str, guests: int = 1, type_id: int = None,
                   exclude_reservation_id: int = None) -> list:
-        """Rooms with no active reservation overlapping [check_in, check_out) and not out of order."""
+        """Rooms with no active reservation overlapping [check_in, check_out) and not out of order.
+        `guests` counts adults and paying children; a room qualifies if it holds them with its extra beds."""
         sql = (
-            "SELECT r.id, r.number, r.floor, r.status, rt.id AS type_id, rt.name AS type_name, rt.base_rate, rt.capacity"
+            "SELECT r.id, r.number, r.floor, r.status, rt.id AS type_id, rt.name AS type_name, rt.base_rate, rt.capacity,"
+            " rt.max_extra_beds, rt.extra_bed_rate"
             " FROM rooms r JOIN room_types rt ON rt.id = r.type_id"
-            " WHERE r.status <> 'maintenance' AND rt.active = 1 AND rt.capacity >= ?"
+            " WHERE r.status <> 'maintenance' AND rt.active = 1 AND rt.capacity + rt.max_extra_beds >= ?"
             " AND NOT EXISTS (SELECT 1 FROM reservations x WHERE x.room_id = r.id"
             "   AND x.status IN ('booked','checked_in') AND x.check_in < ? AND x.check_out > ?"
         )

@@ -45,6 +45,7 @@ class SettingsSchema(Schema):
     online_booking_enabled = Bool()
     free_cancellation_days = Number(min_value=0, max_value=60, integer=True)
     max_online_nights = Number(min_value=1, max_value=365, integer=True)
+    child_free_age = Number(min_value=0, max_value=17, integer=True)
     require_2fa_for_admins = Bool()
     require_email_verification = Bool()
     auto_night_audit = Bool()
@@ -180,7 +181,8 @@ class RoleService(Service):
 class SettingsService(Service):
     PUBLIC_KEYS = ("hotel_name", "hotel_name_ar", "tagline", "address", "phone", "email", "currency",
                    "service_charge_rate", "vat_rate", "city_tax_rate", "check_in_time", "check_out_time",
-                   "online_booking_enabled", "free_cancellation_days", "max_online_nights", "tax_registration_number")
+                   "online_booking_enabled", "free_cancellation_days", "max_online_nights", "tax_registration_number",
+                   "child_free_age")
 
     def public(self) -> dict:
         s = self.settings()

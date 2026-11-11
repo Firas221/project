@@ -17,6 +17,7 @@ class SearchSchema(Schema):
     check_out = Date(required=True)
     adults = Int(min_value=1, max_value=10, default=2)
     children = Int(min_value=0, max_value=10, default=0)
+    infants = Int(min_value=0, max_value=6, default=0)
     promo_code = Str(max_len=30, upper=True)
 
 
@@ -25,10 +26,12 @@ class ChangeSchema(Schema):
     check_out = Date(required=True)
     adults = Int(min_value=1, max_value=10, default=1)
     children = Int(min_value=0, max_value=10, default=0)
+    infants = Int(min_value=0, max_value=6, nullable=True, default=None)
     room_type_id = Int("Room type", nullable=True, default=None)
 
 
 STAY_FIELDS = ("id", "code", "check_in", "check_out", "nights", "room_type", "room_type_id", "status", "adults", "children",
+               "infants", "extra_beds",
                "rate", "special_requests", "rate_plan_name", "meal_plan", "refundable")
 
 
@@ -46,7 +49,8 @@ class PublicService(Service):
 
     def room_types(self) -> list:
         photos = self.repos.room_photos.ids_by_type()
-        return [{k: t[k] for k in ("id", "name", "description", "base_rate", "capacity", "bed_type", "size_sqm", "amenities")}
+        return [{k: t[k] for k in ("id", "name", "description", "base_rate", "capacity", "bed_type", "size_sqm", "amenities",
+                                   "max_extra_beds", "extra_bed_rate")}
                 | {"photos": photos.get(t["id"], [])}
                 for t in self.repos.room_types.all() if t["active"]]
 
@@ -59,11 +63,13 @@ class PublicService(Service):
             counts[room["type_id"]] = counts.get(room["type_id"], 0) + 1
         pricing = self.use(PricingService)
         plans = pricing.rate_plans(online=True)
-        pax = {"adults": v["adults"], "children": v["children"]}
         offers = []
         for t in self.room_types():
             if t["id"] not in counts:
                 continue
+            # a party larger than the room is offered it with the extra beds it needs, priced in
+            pax = {"adults": v["adults"], "children": v["children"],
+                   "extra_beds": max(0, v["adults"] + v["children"] - t["capacity"])}
             try:
                 q = pricing.quote(t["id"], v["check_in"], v["check_out"], v["promo_code"], online=True, **pax)
             except ValidationError as e:
@@ -172,7 +178,8 @@ class GuestPortalService(Service):
         type_id = Int("Room type", required=True).clean(data.get("room_type_id"))
         PublicService(self.ctx).search(v)  # re-validates the online limits
         payload = {"guest_id": gid, "room_type_id": type_id, "check_in": v["check_in"], "check_out": v["check_out"],
-                   "adults": v["adults"], "children": v["children"], "promo_code": v["promo_code"],
+                   "adults": v["adults"], "children": v["children"], "infants": v["infants"],
+                   "promo_code": v["promo_code"],
                    "rate_plan_id": Int("Rate plan").clean(data["rate_plan_id"]) if data.get("rate_plan_id") else None,
                    "special_requests": str(data.get("special_requests") or "")[:1000]}
         res = self.use(ReservationService).create(payload, online=True)
@@ -192,7 +199,8 @@ class GuestPortalService(Service):
         v = ChangeSchema.validate(data)
         PublicService(self.ctx).check_online_stay(v["check_in"], v["check_out"])
         result = self.use(ReservationService).change_online(
-            res, v["check_in"], v["check_out"], v["adults"], v["children"], v["room_type_id"] or res["room_type_id"], preview)
+            res, v["check_in"], v["check_out"], v["adults"], v["children"], v["room_type_id"] or res["room_type_id"], preview,
+            infants=v["infants"])
         return {"preview": result} if preview else self.reservation(res["id"])
 
     def cancel(self, reservation_id: int) -> dict:

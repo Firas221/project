@@ -102,3 +102,48 @@ test('the bell in Arabic, and "mark all as read"', async () => {
   assert.deepEqual(problems, []);
   await context.close();
 });
+
+test('extra beds and infants: on the website and in the booking form', async () => {
+  const { day, number } = require('./support');
+  const { context, page, problems } = await open();
+  await signIn(page, 'guest');
+  await page.goto(hotel.base + '/');
+  await page.waitForSelector('#search');
+  assert.match(await page.locator('#search').innerText(), /Infants \(under 6\)/);
+  await page.fill('input[name=check_in]', day(250));
+  await page.fill('input[name=check_out]', day(252));
+  await page.fill('input[name=adults]', '2');
+  await page.fill('input[name=children]', '1');
+  await page.fill('input[name=infants]', '1');
+  await page.click('#search button');
+  await page.waitForSelector('.offer');
+  const names = await page.$$eval('.offer h3', (hs) => hs.map((h) => h.textContent));
+  assert.ok(!names.includes('Standard Double'), 'a room for two with no extra bed is not offered to three');
+  const king = page.locator('.offer', { hasText: 'Deluxe King' });
+  assert.match(await king.locator('[data-extra-beds]').innerText(), /incl\. 1 extra bed/);
+  await king.locator('[data-book]').click();
+  await page.waitForSelector('.modal');
+  assert.match(await page.locator('.modal').innerText(), /2 \+ 1 · 1 infant\(s\), free · incl\. 1 extra bed/);
+  await page.click('.modal button[type=submit]');
+  await page.waitForURL((url) => url.hash.startsWith('#/stay/'));
+  await page.waitForSelector('#plan');
+  assert.match(await page.locator('#plan').innerText(), /incl\. 1 extra bed\(s\) · 1 infant\(s\), free/);
+  assert.deepEqual(problems, []);
+  await context.close();
+
+  const desk = await open();
+  await signIn(desk.page, 'frontdesk');
+  await desk.page.click('#top-action');
+  await desk.page.waitForSelector('.room-opt');
+  await desk.page.selectOption('.modal select[name=type_id]', { label: await desk.page.locator('.modal select[name=type_id] option', { hasText: 'Deluxe King' }).innerText() });
+  await desk.page.waitForFunction(() => [...document.querySelectorAll('.room-opt')].every((o) => o.textContent.includes('Deluxe King')));
+  await desk.page.locator('.room-opt').first().click();
+  await desk.page.waitForFunction(() => +document.querySelector('.modal input[name=rate]').value > 0);
+  const plain = number(await desk.page.locator('.modal input[name=rate]').inputValue());
+  await desk.page.fill('.modal input[name=adults]', '3');
+  await desk.page.locator('.modal input[name=adults]').dispatchEvent('change');
+  await desk.page.waitForFunction((before) => +document.querySelector('.modal input[name=rate]').value === before + 600, plain);
+  assert.match(await desk.page.locator('#est').innerText(), /includes 1 extra bed\(s\)/);
+  assert.deepEqual(desk.problems, []);
+  await desk.context.close();
+});

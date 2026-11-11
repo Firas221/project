@@ -113,6 +113,7 @@ export async function settingsView(el, { ctx, alive }) {
       <div class="card"><div class="card-head"><h2 class="grow">Guest website</h2></div><div class="card-body form-grid">
         ${check('Online booking enabled', 'online_booking_enabled', s.online_booking_enabled === '1')}${field('Free cancellation until (days before arrival)', 'free_cancellation_days', s.free_cancellation_days, 'type="number" min="0"')}
         ${field('Maximum nights per online booking', 'max_online_nights', s.max_online_nights, 'type="number" min="1"')}
+        ${field('Children younger than this stay free (age)', 'child_free_age', s.child_free_age ?? 6, 'type="number" min="0" max="17"')}
         ${field('Reminder e-mail before arrival (days, 0 = never)', 'arrival_reminder_days', s.arrival_reminder_days ?? 2, 'type="number" min="0" max="14"')}
         <div class="full small muted">Guests can change or cancel their own booking until the free-cancellation limit. E-mails go out in the guest's language (English or Arabic).</div></div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Security</h2></div><div class="card-body form-grid">

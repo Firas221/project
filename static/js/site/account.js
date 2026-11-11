@@ -52,7 +52,8 @@ function rememberLanguage() {
   } catch (e) { /* storage unavailable */ }
 }
 
-const planLine = (r) => [r.rate_plan_name, t(r.meal_plan || 'room_only'), r.refundable ? '' : t('nonRefundable')].filter(Boolean).map(esc).join(' · ');
+const planLine = (r) => [r.rate_plan_name, t(r.meal_plan || 'room_only'), r.refundable ? '' : t('nonRefundable'),
+  r.extra_beds ? t('extraBed', { n: r.extra_beds }) : '', r.infants ? t('infantsFree', { n: r.infants }) : ''].filter(Boolean).map(esc).join(' · ');
 
 async function route() {
   const h = location.hash.replace(/^#\/?/, '');
@@ -126,7 +127,7 @@ async function stayView(el, id) {
 /** Two steps: pick the new stay and see its price, then confirm. Nothing is saved until the second step. */
 async function changeBooking(r) {
   const types = (await GET('/public/info')).room_types;
-  let wanted = { check_in: r.check_in, check_out: r.check_out, adults: r.adults, children: r.children, room_type_id: r.room_type_id };
+  let wanted = { check_in: r.check_in, check_out: r.check_out, adults: r.adults, children: r.children, infants: r.infants, room_type_id: r.room_type_id };
   const url = `/portal/reservations/${r.id}/change`;
   const preview = await modal({
     title: t('changeBooking'), submit: t('seePrice'), cancel: t('back'),
@@ -135,10 +136,11 @@ async function changeBooking(r) {
       <label class="field"><span>${t('departure')}</span><input type="date" name="check_out" value="${wanted.check_out}" required></label>
       <label class="field"><span>${t('adults')}</span><input type="number" name="adults" value="${wanted.adults}" min="1" max="10"></label>
       <label class="field"><span>${t('children')}</span><input type="number" name="children" value="${wanted.children}" min="0" max="10"></label>
+      <label class="field"><span>${t('infants', { age: settings.child_free_age || 6 })}</span><input type="number" name="infants" value="${wanted.infants}" min="0" max="6"></label>
       <label class="field full"><span>${t('roomType')}</span><select name="room_type_id">${types.map((x) =>
         `<option value="${x.id}" ${x.id === wanted.room_type_id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label></div>`,
     onSubmit: async (v) => {
-      wanted = { check_in: v.check_in, check_out: v.check_out, adults: v.adults, children: v.children, room_type_id: +v.room_type_id };
+      wanted = { check_in: v.check_in, check_out: v.check_out, adults: v.adults, children: v.children, infants: v.infants, room_type_id: +v.room_type_id };
       return (await POST(url, { ...wanted, preview: true })).preview;
     },
   });
@@ -147,7 +149,7 @@ async function changeBooking(r) {
     title: t('changeBooking'), submit: t('confirmChange'), cancel: t('back'),
     body: `<dl class="kv"><dt>${t('roomType')}</dt><dd>${esc(preview.room_type)}</dd>
       <dt>${t('arrival')}</dt><dd>${fmtDate(preview.check_in)}</dd><dt>${t('departure')}</dt><dd>${fmtDate(preview.check_out)} (${preview.nights} ${t('nights')})</dd>
-      <dt>${t('guests')}</dt><dd>${preview.adults} + ${preview.children}</dd>
+      <dt>${t('guests')}</dt><dd>${preview.adults} + ${preview.children}${preview.infants ? ` · ${t('infantsFree', { n: preview.infants })}` : ''}${preview.extra_beds ? ` · ${t('extraBed', { n: preview.extra_beds })}` : ''}</dd>
       <dt>${t('avgRate')}</dt><dd>${money(preview.rate)}</dd>
       <dt><b>${t('newPrice')}</b></dt><dd><b id="new-total">${money(preview.total)}</b> <span class="small muted">${t('inclTaxes')}</span></dd></dl>
       ${preview.promo_dropped ? `<div class="notice warn" style="margin-top:10px">${t('promoDropped')}</div>` : ''}`,

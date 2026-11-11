@@ -54,6 +54,8 @@ class RoomTypeSchema(Schema):
     size_sqm = Int("Size", min_value=0, max_value=2000, default=0)
     amenities = Str(max_len=500)
     active = Bool(default=True)
+    max_extra_beds = Int("Extra beds", min_value=0, max_value=4, default=0)
+    extra_bed_rate = Money("Extra bed rate", default=0)
 
 
 class RoomSchema(Schema):
@@ -194,7 +196,7 @@ class GuestService(Service):
         self.require(Perm.GUESTS_VIEW)
         rows = self.repos.reservations.fetch_all(
             "SELECT r.code, r.check_in, r.check_out, r.status, rm.number AS room_number, g.first_name, g.last_name,"
-            " g.nationality, g.id_type, g.id_number, g.date_of_birth, g.gender, g.address, r.adults, r.children"
+            " g.nationality, g.id_type, g.id_number, g.date_of_birth, g.gender, g.address, r.adults, r.children + r.infants AS children"
             " FROM reservations r JOIN guests g ON g.id=r.guest_id JOIN rooms rm ON rm.id=r.room_id"
             " WHERE r.status IN ('checked_in','checked_out') AND r.check_in <= ? AND r.check_out >= ?"
             " ORDER BY rm.number", (day, day))
@@ -329,7 +331,7 @@ class PricingService(Service):
     """Nightly rates = base rate × season adjustment × weekend uplift, minus promo/corporate discount."""
 
     def quote(self, room_type_id: int, check_in: str, check_out: str, promo_code: str = "", company_id: int = None,
-              online: bool = False, rate_plan: dict = None, adults: int = 1, children: int = 0) -> dict:
+              online: bool = False, rate_plan: dict = None, adults: int = 1, children: int = 0, extra_beds: int = 0) -> dict:
         rt = self.repos.room_types.require(room_type_id, "Room type")
         n = nights(check_in, check_out)
         if n < 1:
@@ -352,6 +354,7 @@ class PricingService(Service):
             if rate_plan:
                 rate = (rate * (1 + rate_plan["adjust_pct"] / 100)
                         + rate_plan["per_adult"] * max(1, adults) + rate_plan["per_child"] * max(0, children))
+            rate += extra_beds * rt["extra_bed_rate"]
             nightly.append({"date": day, "rate": money(rate), "label": ", ".join(label)})
         subtotal = money(sum(x["rate"] for x in nightly))
         discount_pct, discount_label = 0.0, ""
@@ -367,9 +370,26 @@ class PricingService(Service):
         return {"room_type_id": room_type_id, "room_type": rt["name"], "nights": n, "nightly": nightly,
                 "subtotal": subtotal, "discount_pct": discount_pct, "discount": discount, "discount_label": discount_label,
                 "total": total, "average_rate": money(total / n), "min_nights": min_nights,
-                "meets_min_stay": n >= min_nights,
+                "meets_min_stay": n >= min_nights, "extra_beds": extra_beds, "extra_bed_rate": rt["extra_bed_rate"],
                 "rate_plan": ({k: rate_plan[k] for k in ("id", "name", "name_ar", "meal_plan", "refundable")}
                               if rate_plan else None)}
+
+    @staticmethod
+    def extra_beds_needed(room_or_type: dict, adults: int, children: int, asked=None) -> int:
+        """How many extra beds a party needs in this room (or the number the desk asked for, if it is allowed).
+        Infants are not counted: they share their parents' bed or a cot."""
+        capacity, most = room_or_type["capacity"], room_or_type["max_extra_beds"]
+        needed = max(0, adults + children - capacity)
+        beds = needed if asked is None else asked
+        if beds > most:
+            if most:
+                raise ValidationError(f"{room_or_type.get('type_name') or room_or_type.get('name')} takes at most {most} extra bed(s)",
+                                      field="extra_beds")
+            raise ValidationError(f"{room_or_type.get('type_name') or room_or_type.get('name')} cannot take an extra bed",
+                                  field="extra_beds")
+        if beds < needed:
+            raise ValidationError(f"This room holds at most {capacity + beds} guests with {beds} extra bed(s)", field="adults")
+        return beds
 
     # ---- rate plans (meal plans, non-refundable rates)
     def plan(self, rate_plan_id, online: bool = False):

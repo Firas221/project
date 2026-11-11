@@ -199,3 +199,96 @@ class AlertTests(AppTestCase):
         self.assertEqual(db.execute("SELECT COUNT(*) FROM staff_alerts").fetchone()[0], 0)
         db.close()
         self.assertTrue(made["user"]["id"])
+
+
+class ExtraBedAndInfantTests(AppTestCase):
+    """Demo data: Standard Double holds 2 and takes no extra bed; Deluxe King holds 2 plus one extra bed at 600."""
+
+    def _type(self, c, name):
+        return next(t for t in c.ok("GET", "/api/room-types") if t["name"] == name)
+
+    def _room(self, c, type_name, ci, co, guests):
+        tid = self._type(c, type_name)["id"]
+        rooms = c.ok("GET", f"/api/availability?check_in={ci}&check_out={co}&guests={guests}&type_id={tid}")
+        return rooms[0] if rooms else None
+
+    def _body(self, room, ci, co, **extra):
+        return {"guest": {"first_name": "Bed", "last_name": "Tester"}, "room_id": room["id"], "check_in": ci, "check_out": co, **extra}
+
+    def test_extra_bed_is_added_and_priced_when_the_party_needs_it(self):
+        desk = self.client("frontdesk")
+        ci, co = d(400), d(402)
+        king = self._type(desk, "Deluxe King")
+        self.assertEqual((king["capacity"], king["max_extra_beds"], king["extra_bed_rate"]), (2, 1, 600))
+        base = desk.ok("GET", f"/api/quote?room_type_id={king['id']}&check_in={ci}&check_out={co}")
+        with_bed = desk.ok("GET", f"/api/quote?room_type_id={king['id']}&check_in={ci}&check_out={co}&extra_beds=1")
+        self.assertAlmostEqual(with_bed["total"], base["total"] + 2 * 600, places=2)
+        room = self._room(desk, "Deluxe King", ci, co, 3)
+        self.assertIsNotNone(room)                                        # offered for three, thanks to the extra bed
+        res = desk.ok("POST", "/api/reservations", self._body(room, ci, co, adults=2, children=1))
+        self.assertEqual(res["extra_beds"], 1)
+        self.assertAlmostEqual(res["rate"], base["average_rate"] + 600, places=2)
+        # one guest fewer: the bed and its charge go
+        fewer = desk.ok("PUT", f"/api/reservations/{res['id']}", {"children": 0})
+        self.assertEqual(fewer["extra_beds"], 0)
+        self.assertAlmostEqual(fewer["rate"], base["average_rate"], places=2)
+        # the desk can still add a bed nobody strictly needs
+        asked = desk.ok("PUT", f"/api/reservations/{res['id']}", {"extra_beds": 1})
+        self.assertAlmostEqual(asked["rate"], base["average_rate"] + 600, places=2)
+        self.assertEqual(desk.req("PUT", f"/api/reservations/{res['id']}", {"extra_beds": 2})[0], 400)   # only one fits
+        self.assertEqual(desk.req("PUT", f"/api/reservations/{res['id']}", {"adults": 4})[0], 400)       # four do not
+
+    def test_rooms_without_extra_beds_and_infants(self):
+        desk = self.client("frontdesk")
+        ci, co = d(410), d(412)
+        self.assertIsNone(self._room(desk, "Standard Double", ci, co, 3))
+        room = self._room(desk, "Standard Double", ci, co, 2)
+        self.assertEqual(desk.req("POST", "/api/reservations", self._body(room, ci, co, adults=3))[0], 400)
+        self.assertEqual(desk.req("POST", "/api/reservations", self._body(room, ci, co, adults=2, extra_beds=1))[0], 400)
+        # two infants on top of two adults: allowed, free, no bed
+        res = desk.ok("POST", "/api/reservations", self._body(room, ci, co, adults=2, infants=2))
+        plain = desk.ok("GET", f"/api/quote?room_type_id={room['type_id']}&check_in={ci}&check_out={co}")
+        self.assertEqual((res["infants"], res["extra_beds"]), (2, 0))
+        self.assertAlmostEqual(res["rate"], plain["average_rate"], places=2)
+        self.assertEqual(desk.req("POST", "/api/reservations", self._body(room, d(420), d(421), infants=9))[0], 400)
+
+    def test_moving_rooms_recounts_the_beds(self):
+        desk = self.client("frontdesk")
+        ci, co = d(430), d(432)
+        king = self._room(desk, "Deluxe King", ci, co, 3)
+        res = desk.ok("POST", "/api/reservations", self._body(king, ci, co, adults=3))
+        suite = self._room(desk, "Family Suite", ci, co, 3)
+        moved = desk.ok("POST", f"/api/reservations/{res['id']}/move", {"room_id": suite["id"], "keep_rate": False})
+        self.assertEqual(moved["extra_beds"], 0)                          # the suite holds four without one
+        double = self._room(desk, "Standard Double", ci, co, 2)
+        self.assertEqual(desk.req("POST", f"/api/reservations/{res['id']}/move", {"room_id": double["id"]})[0], 400)
+
+    def test_website_offers_include_the_bed_and_the_free_age_is_public(self):
+        guest = self.client("amelia.hart@example.com")
+        self.assertEqual(guest.ok("GET", "/api/public/info")["settings"]["child_free_age"], "6")
+        offers = guest.ok("POST", "/api/public/search", {"check_in": d(440), "check_out": d(442), "adults": 2, "children": 1, "infants": 1})["offers"]
+        names = {o["name"]: o for o in offers}
+        self.assertNotIn("Standard Double", names)
+        self.assertEqual(names["Deluxe King"]["quote"]["extra_beds"], 1)
+        self.assertEqual(names["Family Suite"]["quote"]["extra_beds"], 0)
+        two = guest.ok("POST", "/api/public/search", {"check_in": d(440), "check_out": d(442), "adults": 2})["offers"]
+        king_for_two = next(o for o in two if o["name"] == "Deluxe King")
+        self.assertAlmostEqual(names["Deluxe King"]["quote"]["total"], king_for_two["quote"]["total"] + 2 * 600, places=2)
+        res = guest.ok("POST", "/api/portal/reservations", {"room_type_id": names["Deluxe King"]["id"], "check_in": d(440),
+                                                            "check_out": d(442), "adults": 2, "children": 1, "infants": 1})
+        self.assertEqual((res["extra_beds"], res["infants"]), (1, 1))
+        # the guest drops the child online: the preview shows the lower price and no extra bed
+        preview = guest.ok("POST", f"/api/portal/reservations/{res['id']}/change",
+                           {"check_in": d(440), "check_out": d(442), "adults": 2, "children": 0, "preview": True})["preview"]
+        self.assertEqual((preview["extra_beds"], preview["infants"]), (0, 1))
+        self.assertAlmostEqual(preview["subtotal"], king_for_two["quote"]["total"], places=2)
+
+    def test_room_type_settings(self):
+        admin = self.client("admin")
+        t = admin.ok("POST", "/api/room-types", {"name": "Bed Test", "base_rate": 1000, "capacity": 2, "max_extra_beds": 2, "extra_bed_rate": 250})
+        self.assertEqual((t["max_extra_beds"], t["extra_bed_rate"]), (2, 250))
+        self.assertEqual(admin.req("POST", "/api/room-types", {"name": "Bad", "base_rate": 1, "capacity": 1, "max_extra_beds": 9})[0], 400)
+        self.assertEqual(admin.req("POST", "/api/room-types", {"name": "Bad", "base_rate": 1, "capacity": 1, "extra_bed_rate": -1})[0], 400)
+        admin.ok("PUT", "/api/settings", {"child_free_age": 4})
+        self.assertEqual(admin.ok("GET", "/api/settings")["child_free_age"], "4")
+        admin.ok("PUT", "/api/settings", {"child_free_age": 6})

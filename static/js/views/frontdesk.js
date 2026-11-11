@@ -158,6 +158,7 @@ export async function newReservation(prefill = {}) {
     <div class="form-section">Stay</div>
     <div class="form-grid g4">${field('Check-in *', 'check_in', ci, 'type="date"')}${field('Check-out *', 'check_out', prefill.check_out || addDays(ci, 1), 'type="date"')}
       ${field('Adults', 'adults', 1, 'type="number" min="1" max="20"')}${field('Children', 'children', 0, 'type="number" min="0" max="20"')}
+      ${field(infantLabel(), 'infants', 0, 'type="number" min="0" max="6"')}${field('Extra beds (empty = as needed)', 'extra_beds', '', 'type="number" min="0" max="4"')}
       ${selectField('Room type', 'type_id', [['', 'Any type']].concat(types.filter((t) => t.active).map((t) => [t.id, `${t.name} (${money(t.base_rate)})`])), '', 'full')}</div>
     <div><div class="small muted" id="avail-info"></div><div class="room-options" id="room-options"></div></div>
     <div class="form-section">Rate, company &amp; deposit</div>
@@ -181,7 +182,7 @@ export async function newReservation(prefill = {}) {
         try {
           quote = await GET('/quote?' + qs({ room_type_id: selected.type_id, check_in: f.check_in.value, check_out: f.check_out.value,
             promo_code: f.promo_code.value.trim(), company_id: f.company_id.value, rate_plan_id: f.rate_plan_id.value,
-            adults: f.adults.value, children: f.children.value }));
+            adults: f.adults.value, children: f.children.value, extra_beds: bedsFor(selected, f) }));
           f.rate.value = quote.average_rate.toFixed(2);
         } catch (e) { $('#est', m).innerHTML = `<span class="text-bad">${esc(e.message)}</span>`; return; }
         renderEst();
@@ -195,6 +196,7 @@ export async function newReservation(prefill = {}) {
         const sub = n * rate;
         const total = sub * (1 + sc / 100) * (1 + vat / 100);
         $('#est', m).innerHTML = `<b>${n} night(s) × ${money(rate)} = ${money(sub)}</b> + ${sc}% service + ${vat}% VAT ≈ <b>${money(total)}</b>
+          ${quote && quote.extra_beds ? ` · includes ${quote.extra_beds} extra bed(s) at ${money(quote.extra_bed_rate)}` : ''}
           ${quote && quote.discount ? ` · ${esc(quote.discount_label)} applied (-${quote.discount_pct}%)` : ''}
           ${quote && !quote.meets_min_stay ? `<div class="text-bad">Minimum stay for these dates is ${quote.min_nights} nights.</div>` : ''}
           ${quote && quote.nightly.some((x) => x.label) ? `<div class="muted">${quote.nightly.filter((x) => x.label).map((x) => `${fmtDate(x.date, { day: 'numeric', month: 'short' })}: ${money(x.rate)} (${esc(x.label)})`).join(' · ')}</div>` : ''}`;
@@ -211,7 +213,7 @@ export async function newReservation(prefill = {}) {
         box.innerHTML = rooms.map((r) => `<label class="room-opt ${selected && selected.id === r.id ? 'selected' : ''}">
           <input type="radio" name="room_id" value="${r.id}" ${selected && selected.id === r.id ? 'checked' : ''}>
           <b>${esc(r.number)}</b> ${r.status === 'dirty' ? badge('dirty') : ''}<div class="small">${esc(r.type_name)}</div>
-          <div class="small muted">from ${money(r.base_rate)} · up to ${r.capacity}</div></label>`).join('');
+          <div class="small muted">from ${money(r.base_rate)} · up to ${r.capacity}${r.max_extra_beds ? ` (+${r.max_extra_beds})` : ''}</div></label>`).join('');
         $$('.room-opt input', box).forEach((inp) => inp.addEventListener('change', () => {
           selected = rooms.find((r) => r.id === +inp.value);
           $$('.room-opt', box).forEach((l) => l.classList.toggle('selected', $('input', l).checked));
@@ -223,7 +225,7 @@ export async function newReservation(prefill = {}) {
         if (n === 'check_in' && f.check_out.value <= f.check_in.value) f.check_out.value = addDays(f.check_in.value, 1);
         searchAvail();
       }));
-      ['promo_code', 'company_id', 'rate_plan_id'].forEach((n) => f[n].addEventListener('change', updateQuote));
+      ['promo_code', 'company_id', 'rate_plan_id', 'extra_beds'].forEach((n) => f[n].addEventListener('change', updateQuote));
       f.rate.addEventListener('input', renderEst);
       $$('input[name=guest_mode]', m).forEach((r) => r.addEventListener('change', () => {
         const ex = f.guest_mode.value === 'existing';
@@ -237,7 +239,7 @@ export async function newReservation(prefill = {}) {
       if (!v.room_id) throw new Error('Please select a room');
       const payload = { room_id: +v.room_id, check_in: v.check_in, check_out: v.check_out, adults: v.adults, children: v.children,
         rate: v.rate, source: v.source, promo_code: v.promo_code, company_id: v.company_id || null, bill_to_company: v.bill_to_company,
-        rate_plan_id: v.rate_plan_id || null,
+        rate_plan_id: v.rate_plan_id || null, infants: v.infants || 0, extra_beds: v.extra_beds === '' ? null : v.extra_beds,
         special_requests: v.special_requests, notes: v.notes, deposit: v.deposit || 0, deposit_method: v.deposit_method };
       if (v.guest_mode === 'existing') {
         if (!v.guest_id) throw new Error('Search and select a guest');
@@ -261,9 +263,19 @@ function planOption(p) {
   return [p.id, `${p.name} — ${bits.join(', ')}`];
 }
 
-/** "Bed & breakfast · Breakfast included · non-refundable" for a reservation. */
+/** "Bed & breakfast · Breakfast included · non-refundable · 1 extra bed(s) · 1 infant(s)" for a reservation. */
 export function planSummary(r) {
-  return [r.rate_plan_name, mealLabel(r.meal_plan), r.refundable ? '' : 'non-refundable'].filter(Boolean).join(' · ');
+  return [r.rate_plan_name, mealLabel(r.meal_plan), r.refundable ? '' : 'non-refundable',
+    r.extra_beds ? `${r.extra_beds} extra bed(s)` : '', r.infants ? `${r.infants} infant(s)` : ''].filter(Boolean).join(' · ');
+}
+
+/** "Infants (under 6)": children below the hotel's free age pay nothing and need no bed. */
+const infantLabel = () => `Infants (under ${settings.child_free_age || 6})`;
+
+/** Extra beds to price for the chosen room: what was typed, or as many as the party needs. */
+function bedsFor(room, f) {
+  if (f.extra_beds.value !== '') return f.extra_beds.value;
+  return Math.max(0, (+f.adults.value || 1) + (+f.children.value || 0) - room.capacity);
 }
 
 export function guestPicker(input, box, onPick) {
@@ -464,6 +476,7 @@ async function editReservation(r, ctx) {
     title: 'Edit ' + r.code,
     body: `<div class="form-grid">${field('Check-in', 'check_in', r.check_in, `type="date" ${inHouse ? 'disabled' : ''}`)}${field('Check-out', 'check_out', r.check_out, 'type="date"')}
       ${field('Adults', 'adults', r.adults, 'type="number" min="1"')}${field('Children', 'children', r.children, 'type="number" min="0"')}
+      ${field(infantLabel(), 'infants', r.infants, 'type="number" min="0" max="6"')}${field('Extra beds (empty = as needed)', 'extra_beds', '', `type="number" min="0" max="4" placeholder="${r.extra_beds}"`)}
       ${field('Nightly rate (leave to reprice automatically)', 'rate', '', `type="number" step="0.01" min="0" placeholder="${r.rate.toFixed(2)}"`, 'full')}
       ${selectField('Rate plan', 'rate_plan_id', planChoices, r.rate_plan_id || (r.rate_plan_name ? 'keep' : ''), 'full')}
       ${selectField('Source', 'source', SOURCES.map((s) => [s, label(s)]), r.source)}
@@ -472,6 +485,7 @@ async function editReservation(r, ctx) {
       ${textField('Special requests', 'special_requests', r.special_requests)}${textField('Notes', 'notes', r.notes)}</div>`,
     onSubmit: (v) => {
       if (v.rate === '') delete v.rate;
+      if (v.extra_beds === '') delete v.extra_beds;
       v.company_id = v.company_id || null;
       if (v.rate_plan_id === 'keep' || String(v.rate_plan_id) === String(r.rate_plan_id || '')) delete v.rate_plan_id;
       else v.rate_plan_id = v.rate_plan_id || null;

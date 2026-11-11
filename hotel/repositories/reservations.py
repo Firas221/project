@@ -9,7 +9,7 @@ class ReservationRepository(BaseRepository):
     columns = ("code", "guest_id", "room_id", "check_in", "check_out", "adults", "children", "rate", "status", "source",
                "special_requests", "notes", "created_by", "checked_in_at", "checked_out_at", "cancelled_at", "company_id",
                "bill_to_company", "group_code", "group_name", "promo_code", "rate_note", "rate_plan_id", "rate_plan_name",
-               "meal_plan", "refundable", "reminder_sent_at")
+               "meal_plan", "refundable", "reminder_sent_at", "infants", "extra_beds")
     select_sql = (
         "SELECT t.*, g.first_name || ' ' || g.last_name AS guest_name, g.email AS guest_email, g.phone AS guest_phone,"
         " g.vip AS guest_vip, rm.number AS room_number, rt.name AS room_type, rt.id AS room_type_id,"

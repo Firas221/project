@@ -109,7 +109,7 @@ class ReservationController(Controller):
                              self.q("check_in"), self.q("check_out"), self.q("promo_code", ""),
                              Int().clean(self.q("company_id")) if self.q("company_id") else None,
                              rate_plan=pricing.plan(number("rate_plan_id", None)),
-                             adults=number("adults", 1), children=number("children", 0))
+                             adults=number("adults", 1), children=number("children", 0), extra_beds=number("extra_beds", 0))
 
     @get("/calendar", perm=Perm.RESERVATIONS_VIEW)
     def calendar(self):
