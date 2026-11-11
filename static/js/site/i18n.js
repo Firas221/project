@@ -20,6 +20,12 @@ const STRINGS = {
     verifyTitle: 'Confirm your e-mail address', verifyText: 'We sent a confirmation link to {email}. Open it to start using your account. The link works for 48 hours.',
     verifyResend: 'Send the link again', verifyDone: 'I have confirmed it', verifySent: 'A new link is on its way.',
     emailConfirmed: 'Your e-mail address is confirmed. Thank you!',
+    room_only: 'Room only', breakfast: 'Breakfast included', half_board: 'Half board', full_board: 'Full board',
+    flexible: 'Free cancellation', nonRefundable: 'Non-refundable', chooseRate: 'Choose your rate', standardRate: 'Standard rate',
+    changeBooking: 'Change booking', roomType: 'Room type', seePrice: 'See new price', newPrice: 'New price', confirmChange: 'Confirm change',
+    changed: 'Your booking has been changed.', promoDropped: 'Your promo code is no longer valid for these dates and was removed.',
+    changeNote: 'You can change dates, guests or room type. The price is worked out again at today’s rates.',
+    payAtHotel: 'Payment is taken at the hotel.', minStay: 'Minimum stay', staffLink: 'Staff', emailLanguage: 'E-mails in',
   },
   ar: {
     lang: 'English', rooms: 'الغرف', reviews: 'التقييمات', account: 'حسابي', signin: 'تسجيل الدخول', signout: 'تسجيل الخروج', register: 'إنشاء حساب',
@@ -41,6 +47,12 @@ const STRINGS = {
     verifyTitle: 'أكّد بريدك الإلكتروني', verifyText: 'أرسلنا رابط تأكيد إلى {email}. افتحه لتبدأ استخدام حسابك. الرابط صالح لمدة 48 ساعة.',
     verifyResend: 'أرسل الرابط مرة أخرى', verifyDone: 'لقد أكّدت بريدي', verifySent: 'رابط جديد في الطريق إليك.',
     emailConfirmed: 'تم تأكيد بريدك الإلكتروني. شكرًا لك!',
+    room_only: 'الغرفة فقط', breakfast: 'شامل الإفطار', half_board: 'نصف إقامة', full_board: 'إقامة كاملة',
+    flexible: 'إلغاء مجاني', nonRefundable: 'غير قابل للاسترداد', chooseRate: 'اختر السعر', standardRate: 'السعر الأساسي',
+    changeBooking: 'تعديل الحجز', roomType: 'نوع الغرفة', seePrice: 'عرض السعر الجديد', newPrice: 'السعر الجديد', confirmChange: 'تأكيد التعديل',
+    changed: 'تم تعديل حجزك.', promoDropped: 'رمز الخصم لم يعد صالحًا لهذه التواريخ وتمت إزالته.',
+    changeNote: 'يمكنك تغيير التواريخ أو عدد النزلاء أو نوع الغرفة. يُعاد حساب السعر بأسعار اليوم.',
+    payAtHotel: 'يتم الدفع في الفندق.', minStay: 'أقل مدة إقامة', staffLink: 'الموظفون', emailLanguage: 'لغة الرسائل',
   },
 };
 
@@ -57,6 +69,7 @@ export function applyDirection() {
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
 }
+export const otherLang = () => (lang === 'ar' ? 'en' : 'ar');
 export function toggleLang() {
   lang = lang === 'ar' ? 'en' : 'ar';
   try { localStorage.setItem('lang', lang); } catch (e) { /* ignore */ }

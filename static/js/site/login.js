@@ -1,7 +1,8 @@
 // Sign-in page for everyone (staff and guests): password, 2FA, guest registration, password reset.
 import { GET, POST, setCsrf } from '../core/api.js';
 import { $, esc, formValues } from '../core/ui.js';
-import { t, toggleLang } from './i18n.js';
+import { getLang, t, toggleLang } from './i18n.js';
+import { startTranslator } from '../core/i18n.js';
 
 const params = new URLSearchParams(location.search);
 let hotel = { hotel_name: 'Hotel' };
@@ -77,7 +78,7 @@ function register() {
   $('#back').addEventListener('click', (e) => { e.preventDefault(); signIn(); });
   $('#f').addEventListener('submit', async (e) => {
     e.preventDefault();
-    try { done(await POST('/auth/register', formValues(e.target))); } catch (ex) { showError(ex.message); }
+    try { done(await POST('/auth/register', { ...formValues(e.target), language: getLang() })); } catch (ex) { showError(ex.message); }
   });
 }
 
@@ -117,6 +118,7 @@ async function verifyEmail(token) {
 }
 
 (async () => {
+  await startTranslator();
   try { hotel = (await GET('/public/info')).settings; } catch (e) { /* offline */ }
   document.title = `${t('signin')} · ${hotel.hotel_name}`;
   const hash = new URLSearchParams(location.hash.slice(1));

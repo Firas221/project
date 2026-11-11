@@ -1,8 +1,8 @@
 // Guests: profiles, stay history, police guest register (Egypt), privacy export & erasure.
 import { GET, POST, PUT, DEL, qs } from '../core/api.js';
 import {
-  $, badge, bindRowLinks, check, confirmBox, esc, field, fmtDate, guarded, label, modal, money, selectField, table,
-  textField, toast, todayISO, vip,
+  $, PAGE_SIZE, badge, bindPager, bindRowLinks, check, confirmBox, esc, field, fmtDate, guarded, label, modal, money, pager,
+  selectField, table, textField, toast, todayISO, vip,
 } from '../core/ui.js';
 
 const ID_TYPES = [['passport', 'Passport'], ['national_id', 'Egyptian national ID'], ['driving_license', 'Driving licence'], ['other', 'Other']];
@@ -12,17 +12,19 @@ export async function guestsView(el, { ctx, alive }) {
       <a class="btn" href="#/guest-register">Guest register (police)</a><a class="btn" href="/api/export/guests">Export CSV</a>
       ${ctx.can('guests.manage') ? '<button class="btn primary" id="new">+ New guest</button>' : ''}</div>
     <div class="toolbar"><input type="search" id="q" placeholder="Name, e-mail, phone, ID…"></div><div class="card" id="list"></div>`;
-  const load = async () => {
-    const list = await GET('/guests?' + qs({ q: $('#q').value.trim() }));
+  const load = async (page = 1) => {
+    const found = await GET('/guests?' + qs({ q: $('#q').value.trim(), page, per_page: PAGE_SIZE }));
     if (!alive()) return;
+    const list = found.items;
     $('#list').innerHTML = table(['Name', 'Nationality', 'E-mail', 'Phone', 'ID', ['Stays', 'num'], 'Last stay'], list.map((g) => `
       <tr class="clickable" data-href="#/guests/${g.id}"><td><b>${esc(g.last_name)}, ${esc(g.first_name)}</b>${vip(g.vip)}${g.user_id ? ' <span class="badge b-info plain">Online account</span>' : ''}</td>
       <td>${esc(g.nationality)}</td><td>${esc(g.email)}</td><td>${esc(g.phone)}</td><td class="small">${esc(g.id_number)}</td>
-      <td class="num">${g.stays}</td><td>${g.last_stay ? fmtDate(g.last_stay) : '—'}</td></tr>`).join(''), 'No guests found');
+      <td class="num">${g.stays}</td><td>${g.last_stay ? fmtDate(g.last_stay) : '—'}</td></tr>`).join(''), 'No guests found') + pager(found);
     bindRowLinks(el);
+    bindPager(el, load);
   };
   let t;
-  $('#q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(load, 250); });
+  $('#q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => load(), 250); });
   if ($('#new')) $('#new').addEventListener('click', async () => { const g = await guestForm(); if (g) location.hash = '#/guests/' + g.id; });
   await load();
 }
@@ -34,7 +36,8 @@ export async function guestForm(g = {}) {
       ${field('E-mail', 'email', g.email, 'type="email"')}${field('Phone', 'phone', g.phone)}
       ${field('Nationality', 'nationality', g.nationality)}${selectField('Gender', 'gender', [['', '—'], ['male', 'Male'], ['female', 'Female']], g.gender)}
       ${selectField('ID type', 'id_type', ID_TYPES, g.id_type || 'passport')}${field('ID / passport number', 'id_number', g.id_number)}
-      ${field('Date of birth', 'date_of_birth', g.date_of_birth, 'type="date"')}${check('VIP guest', 'vip', g.vip)}
+      ${field('Date of birth', 'date_of_birth', g.date_of_birth, 'type="date"')}${selectField('Language for e-mails', 'language', [['', 'English'], ['ar', 'العربية']], g.language === 'ar' ? 'ar' : '')}
+      ${check('VIP guest', 'vip', g.vip)}
       ${field('Address', 'address', g.address, '', 'full')}${check('Agreed to receive marketing messages', 'marketing_consent', g.marketing_consent, 'full')}
       ${textField('Notes / preferences', 'notes', g.notes)}
       <div class="full small muted">Nationality and ID number are required before check-in (guest registration for the authorities).</div></div>`,
@@ -64,6 +67,7 @@ export async function guestView(el, { args, ctx, alive }) {
         <dt>Nationality</dt><dd>${esc(g.nationality) || '—'}</dd><dt>${esc(label(g.id_type))}</dt><dd>${esc(g.id_number) || '—'}</dd>
         <dt>Date of birth</dt><dd>${g.date_of_birth ? fmtDate(g.date_of_birth) : '—'}</dd><dt>E-mail</dt><dd>${esc(g.email) || '—'}</dd>
         <dt>Phone</dt><dd>${esc(g.phone) || '—'}</dd><dt>Address</dt><dd>${esc(g.address) || '—'}</dd>
+        <dt>Language for e-mails</dt><dd>${g.language === 'ar' ? 'العربية' : 'English'}</dd>
         <dt>Privacy notice</dt><dd>${g.privacy_accepted_at ? 'Accepted ' + fmtDate(g.privacy_accepted_at) : '—'}</dd>
         <dt>Marketing</dt><dd>${g.marketing_consent ? 'Consented' : 'No consent'}</dd><dt>Notes</dt><dd class="pre">${esc(g.notes) || '—'}</dd></dl></div></div></div>`;
   bindRowLinks(el);

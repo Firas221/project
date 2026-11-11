@@ -10,13 +10,13 @@ import * as fin from '../views/finance.js';
 import * as admin from '../views/admin.js';
 
 export const SCREENS = {
-  dashboard: { label: 'Dashboard', icon: 'dashboard', perm: 'dashboard.view', view: fd.dashboardView },
+  dashboard: { label: 'Dashboard', icon: 'dashboard', perm: 'dashboard.view', view: fd.dashboardView, live: 60 },
   calendar: { label: 'Room calendar', icon: 'calendar', perm: 'reservations.view', view: fd.calendarView },
   reservations: { label: 'Reservations', icon: 'reservations', perm: 'reservations.view', view: fd.reservationsView },
   guests: { label: 'Guests', icon: 'guests', perm: 'guests.view', view: guests.guestsView },
-  housekeeping: { label: 'Housekeeping', icon: 'housekeeping', perm: 'housekeeping.view', view: ops.housekeepingBoardView },
-  maintenance: { label: 'Maintenance', icon: 'wrench', perm: 'maintenance.report', view: ops.maintenanceView },
-  requests: { label: 'Guest requests', icon: 'bell', perm: 'requests.manage', view: ops.requestsView },
+  housekeeping: { label: 'Housekeeping', icon: 'housekeeping', perm: 'housekeeping.view', view: ops.housekeepingBoardView, live: 30 },
+  maintenance: { label: 'Maintenance', icon: 'wrench', perm: 'maintenance.report', view: ops.maintenanceView, live: 60 },
+  requests: { label: 'Guest requests', icon: 'bell', perm: 'requests.manage', view: ops.requestsView, live: 30 },
   orders: { label: 'Room service', icon: 'kitchen', perm: 'kitchen.view', view: kitchen.orderBoardView },
   'lost-found': { label: 'Lost & found', icon: 'box', perm: 'lostfound.report', view: ops.lostFoundView },
   reviews: { label: 'Reviews', icon: 'star', perm: 'reviews.manage', view: ops.reviewsView },

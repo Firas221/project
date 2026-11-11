@@ -1,8 +1,8 @@
 // Administration: users, role permission matrix, hotel settings, audit log, e-mail outbox, sessions, backups.
 import { GET, POST, PUT, qs } from '../core/api.js';
 import {
-  $, $$, badge, check, esc, field, fmtDate, fmtDateTime, formValues, guarded, label, modal, on, options, selectField,
-  showSecret, table, toast,
+  $, $$, PAGE_SIZE, badge, bindPager, check, esc, field, fmtDate, fmtDateTime, formValues, guarded, label, modal, on, options,
+  pager, selectField, showSecret, table, toast,
 } from '../core/ui.js';
 
 const ROLE_OPTIONS = [['staff', 'Front desk staff'], ['chef', 'Chef / kitchen'], ['housekeeper', 'Housekeeper'], ['admin', 'Administrator']];
@@ -99,10 +99,14 @@ export async function settingsView(el, { ctx, alive }) {
         ${check('Cash payments require an open cashier shift', 'cash_requires_shift', s.cash_requires_shift === '1', 'full')}
         ${check('Run the night audit automatically', 'auto_night_audit', s.auto_night_audit === '1')}${field('Automatic night audit time', 'night_audit_time', s.night_audit_time || '03:00', 'type="time"')}
         <div class="full small muted">The automatic night audit marks no-shows, saves the day's figures and moves the business date forward.
-          A time before noon closes the previous day; a time after noon closes the same day.</div></div></div>
+          A time before noon closes the previous day; a time after noon closes the same day.</div>
+        ${check('Create stay-over cleaning tasks automatically each day', 'auto_stayover_tasks', s.auto_stayover_tasks === '1')}${field('Create them at', 'stayover_time', s.stayover_time || '08:00', 'type="time"')}
+        <div class="full small muted">Every occupied room that is not checking out gets a cleaning task, the same as pressing “Generate stay-over tasks”.</div></div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Guest website</h2></div><div class="card-body form-grid">
         ${check('Online booking enabled', 'online_booking_enabled', s.online_booking_enabled === '1')}${field('Free cancellation until (days before arrival)', 'free_cancellation_days', s.free_cancellation_days, 'type="number" min="0"')}
-        ${field('Maximum nights per online booking', 'max_online_nights', s.max_online_nights, 'type="number" min="1"')}</div></div>
+        ${field('Maximum nights per online booking', 'max_online_nights', s.max_online_nights, 'type="number" min="1"')}
+        ${field('Reminder e-mail before arrival (days, 0 = never)', 'arrival_reminder_days', s.arrival_reminder_days ?? 2, 'type="number" min="0" max="14"')}
+        <div class="full small muted">Guests can change or cancel their own booking until the free-cancellation limit. E-mails go out in the guest's language (English or Arabic).</div></div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Security</h2></div><div class="card-body form-grid">
         ${check('Require two-factor authentication for administrators', 'require_2fa_for_admins', s.require_2fa_for_admins === '1', 'full')}
         <div class="full small muted">Set up your own 2FA under “My security” before enabling this.</div>
@@ -135,18 +139,20 @@ export async function settingsView(el, { ctx, alive }) {
 
 export async function auditView(el, { params, alive }) {
   const f = { q: params.q || '', from: params.from || '', to: params.to || '' };
-  const [rows, outbox] = await Promise.all([GET('/audit?' + qs(f)), GET('/outbox')]);
+  const [found, outbox] = await Promise.all([GET('/audit?' + qs({ ...f, page: params.page || 1, per_page: PAGE_SIZE })), GET('/outbox')]);
   if (!alive()) return;
+  const rows = found.items;
   el.innerHTML = `<div class="page-head"><div class="grow"><h1>Audit log</h1><div class="sub">Every sign-in, change and security event, with user and IP address.</div></div>
       <a class="btn" href="/api/export/audit?${qs(f)}">Export CSV</a></div>
     <form class="toolbar" id="f"><input type="search" name="q" value="${esc(f.q)}" placeholder="Search action, user, details…">
       <label class="check small">From <input type="date" name="from" value="${esc(f.from)}"></label><label class="check small">To <input type="date" name="to" value="${esc(f.to)}"></label>
       <button class="btn">Filter</button></form>
     <div class="card">${table(['Time', 'User', 'Action', 'Details', 'IP'], rows.map((a) => `<tr class="${/fail|locked/.test(a.action) ? 'row-warn' : ''}">
-      <td class="nowrap small">${fmtDateTime(a.created_at)}</td><td>${esc(a.username || '—')}</td><td><b>${esc(label(a.action))}</b></td><td class="small">${esc(a.details)}</td><td class="small muted">${esc(a.ip)}</td></tr>`).join(''), 'No entries')}</div>
+      <td class="nowrap small">${fmtDateTime(a.created_at)}</td><td>${esc(a.username || '—')}</td><td><b>${esc(label(a.action))}</b></td><td class="small">${esc(a.details)}</td><td class="small muted">${esc(a.ip)}</td></tr>`).join(''), 'No entries')}${pager(found)}</div>
     <div class="card" style="margin-top:16px"><div class="card-head"><h2>E-mail outbox</h2></div>${table(['Queued', 'To', 'Subject', 'Status'], outbox.slice(0, 50).map((m) => `<tr>
       <td class="small">${fmtDateTime(m.created_at)}</td><td>${esc(m.to_address)}</td><td>${esc(m.subject)}</td><td>${badge(m.status === 'sent' ? 'done' : m.status === 'failed' ? 'rejected' : 'pending', m.status)}</td></tr>`).join(''), 'No e-mails')}
       <div class="card-body small muted">Status “logged” means SMTP is not configured yet: set HOTEL_SMTP_HOST etc. to deliver e-mails.</div></div>`;
   $('#f', el).addEventListener('submit', (e) => { e.preventDefault(); location.hash = '#/audit?' + qs(formValues(e.target)); });
+  bindPager(el, (page) => { location.hash = '#/audit?' + qs({ ...f, page }); });
   void fmtDate;
 }

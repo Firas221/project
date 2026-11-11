@@ -44,6 +44,11 @@ function lookup(key, depth = 0) {
     const done = parts.map((p) => lookup(p, depth + 1));
     if (done.some((d) => d !== null)) return done.map((d, i) => d ?? parts[i]).join(sep);
   }
+  // "Breakfast included, non-refundable": only when every part is interface text, so data with commas is left alone.
+  if (key.includes(', ')) {
+    const done = key.split(', ').map((p) => lookup(p, depth + 1));
+    if (done.every((d) => d !== null)) return done.join('، ');
+  }
   const m = key.match(/^(.+) \(([^()]+)\)$/);   // "101 (Clean)", "Cleaning (1 low)"
   if (m) {
     const a = lookup(m[1], depth + 1);

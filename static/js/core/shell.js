@@ -96,29 +96,45 @@ class Router {
     this.ctx = ctx;
     this.token = 0;
     this.routes = [
-      ...cfg.nav.filter((n) => !n.sep).map((n) => ({ pattern: new RegExp(`^${n.path}$`), nav: n.path, view: n.view, perm: n.perm, label: n.label })),
+      ...cfg.nav.filter((n) => !n.sep).map((n) => ({ pattern: new RegExp(`^${n.path}$`), nav: n.path, view: n.view, perm: n.perm, label: n.label, live: n.live })),
       ...(cfg.routes || []),
       { pattern: /^security$/, nav: 'security', view: securityView, label: 'My security' },
     ];
   }
 
-  async render() {
+  /**
+   * Screens marked `live: <seconds>` (dashboard, housekeeping, requests …) reload their data by themselves,
+   * so new arrivals, tasks and requests appear without anyone pressing refresh. A reload is skipped while a
+   * dialog is open, while someone is typing or choosing in the screen, and while the tab is in the background.
+   */
+  keepFresh(route) {
+    clearInterval(this.timer);
+    if (!route.live) return;
+    this.timer = setInterval(() => {
+      const busy = document.querySelector('.modal-back') || document.hidden
+        || (document.activeElement && document.activeElement.closest('#view') && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName));
+      if (!busy) this.render(true);
+    }, route.live * 1000);
+  }
+
+  async render(quiet = false) {
     const hash = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
     const [path, query] = hash.split('?');
     const params = Object.fromEntries(new URLSearchParams(query || ''));
     const view = $('#view');
     $('#sidebar').classList.remove('open');
     const route = this.routes.find((r) => r.pattern.test(path));
-    if (!route || !this.ctx.can(route.perm)) { view.innerHTML = '<div class="empty">Page not found</div>'; return; }
+    if (!route || !this.ctx.can(route.perm)) { clearInterval(this.timer); view.innerHTML = '<div class="empty">Page not found</div>'; return; }
+    if (!quiet) this.keepFresh(route);
     $$('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === route.nav));
     const navItem = this.routes.find((r) => r.nav === route.nav && r.label);
     $('#top-title').textContent = navItem ? navItem.label : '';
     const token = ++this.token;
-    view.innerHTML = '<div class="empty">Loading…</div>';
+    if (!quiet) view.innerHTML = '<div class="empty">Loading…</div>';
     try {
       await route.view(view, { args: path.match(route.pattern).slice(1), params, ctx: this.ctx, alive: () => token === this.token });
     } catch (e) {
-      if (token === this.token) view.innerHTML = `<div class="card card-body"><div class="form-error">${esc(e.message)}</div></div>`;
+      if (token === this.token && !quiet) view.innerHTML = `<div class="card card-body"><div class="form-error">${esc(e.message)}</div></div>`;
     }
   }
 }

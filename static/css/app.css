@@ -306,3 +306,6 @@ select.compact { padding: 4px 6px; font-size: 12px; width: auto; max-width: 160p
   [dir="rtl"] .sidebar { left: auto; right: 0; transform: translateX(100%); }
   [dir="rtl"] .sidebar.open { transform: none; }
 }
+
+/* previous / next under long lists */
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; border-top: 1px solid var(--border); }

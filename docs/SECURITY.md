@@ -17,6 +17,7 @@ Access is permission-based, with five roles. Every API route declares an audienc
 - Housekeepers can only work on tasks assigned to them, or unassigned ones.
 - Cashiers only see their own shifts unless they have report access.
 - Room numbers are hidden from guests until check-in.
+- Guests can change or cancel only their own bookings, only before the free-cancellation limit, and never a non-refundable one. A change is re-priced by the server at current rates; the browser cannot supply a price.
 
 ## Authentication
 

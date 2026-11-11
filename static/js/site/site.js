@@ -1,11 +1,21 @@
 // Public hotel website: room types, live availability & pricing, online booking, reviews.
 import { GET, POST, loadSession } from '../core/api.js';
 import { $, $$, addDays, configure, esc, fmtDate, modal, money, settings, todayISO, toast } from '../core/ui.js';
-import { getLang, t, toggleLang } from './i18n.js';
+import { getLang, otherLang, t, toggleLang } from './i18n.js';
+import { startTranslator } from '../core/i18n.js';
 
 let session = null;
 
+/** Switching language also tells the hotel which language this guest's e-mails should be in. */
+async function switchLanguage() {
+  if (session && session.user.role === 'guest') { try { await POST('/portal/language', { language: otherLang() }); } catch (e) { /* not essential */ } }
+  toggleLang();
+}
+
+const planName = (p) => (getLang() === 'ar' && p.name_ar ? p.name_ar : p.name);
+
 async function init() {
+  await startTranslator();   // puts server messages and status labels into Arabic too
   const [info, reviews] = await Promise.all([GET('/public/info'), GET('/public/reviews').catch(() => ({ reviews: [], summary: {} }))]);
   configure(info.settings);
   try { session = await loadSession(); } catch (e) { session = null; }
@@ -39,8 +49,8 @@ async function init() {
           <footer>— ${esc(r.guest)}, ${esc(r.room_type)}</footer>${r.reply ? `<div class="reply">${esc(r.reply)}</div>` : ''}</blockquote>`).join('') || '<p class="muted">—</p>'}</div></section>
     </main>
     <footer class="site-foot"><div><b>${esc(name)}</b><br>${esc(s.address)}<br>${esc(s.phone)} · ${esc(s.email)}</div>
-      <div>${t('checkIn')} ${esc(s.check_in_time)} · ${t('checkOut')} ${esc(s.check_out_time)}<br><a href="/privacy">${t('privacy')}</a> · <a href="/login">Staff</a></div></footer>`;
-  $('#lang').addEventListener('click', toggleLang);
+      <div>${t('checkIn')} ${esc(s.check_in_time)} · ${t('checkOut')} ${esc(s.check_out_time)}<br><a href="/privacy">${t('privacy')}</a> · <a href="/login">${t('staffLink')}</a></div></footer>`;
+  $('#lang').addEventListener('click', switchLanguage);
   $$('[data-photo]').forEach((b) => b.addEventListener('click', () => {
     const box = b.closest('.room-photo');
     $('img', box).src = '/api/public/photos/' + b.dataset.photo;
@@ -56,7 +66,7 @@ async function init() {
     const offers = await search(Object.fromEntries(new FormData(form)));
     const offer = offers && offers.find((o) => o.id === +pending.get('book'));
     history.replaceState(null, '', '/');
-    if (offer) confirmBooking(offer, Object.fromEntries(new FormData(form)));
+    if (offer) confirmBooking(offer, Object.fromEntries(new FormData(form)), offer.plans.find((p) => p.id === +pending.get('plan')) || null);
   }
 }
 
@@ -78,39 +88,53 @@ async function search(q) {
     <article class="offer">${o.photos.length ? `<img class="offer-img" src="/api/public/photos/${o.photos[0]}" alt="${esc(o.name)}" loading="lazy">` : ''}<div class="offer-info"><h3>${esc(o.name)}</h3><div class="small muted">${t('upTo')} ${o.capacity} ${t('guests')} · ${esc(o.bed_type)}</div>
       ${o.quote.discount ? `<div class="deal">${esc(o.quote.discount_label)} −${o.quote.discount_pct}%</div>` : ''}
       ${o.quote.nightly.some((n) => n.label) ? `<div class="small muted">${[...new Set(o.quote.nightly.filter((n) => n.label).map((n) => n.label))].map(esc).join(', ')}</div>` : ''}
-      ${!o.quote.meets_min_stay ? `<div class="text-bad small">Minimum stay ${o.quote.min_nights} ${t('nights')}</div>` : ''}</div>
-      <div class="offer-price"><div class="big-price">${money(withTax(o.quote.total))}</div><div class="small muted">${o.quote.nights} ${t('nights')} · ${t('inclTaxes')}</div>
-      <div class="small muted">${money(o.quote.average_rate)} ${t('avgRate')}</div>${o.rooms_left <= 3 ? `<div class="small text-bad">${o.rooms_left} ${t('left')}</div>` : ''}
+      ${!o.quote.meets_min_stay ? `<div class="text-bad small">${t('minStay')} ${o.quote.min_nights} ${t('nights')}</div>` : ''}
+      ${o.plans.length ? `<fieldset class="rate-choice"><legend>${t('chooseRate')}</legend>
+        ${[{ id: '', name: t('standardRate'), meal_plan: 'room_only', refundable: 1, quote: o.quote }].concat(o.plans).map((p, n) => `<label class="rate-opt">
+          <input type="radio" name="plan-${o.id}" value="${p.id}" ${n === 0 ? 'checked' : ''} data-total="${withTax(p.quote.total)}" data-avg="${p.quote.average_rate}">
+          <span><b>${esc(p.id === '' ? p.name : planName(p))}</b><br><span class="small muted">${t(p.meal_plan)} · ${p.refundable ? t('flexible') : `<span class="text-bad">${t('nonRefundable')}</span>`}</span></span>
+          <span class="rate-price">${money(withTax(p.quote.total))}</span></label>`).join('')}</fieldset>` : ''}</div>
+      <div class="offer-price"><div class="big-price" data-price>${money(withTax(o.quote.total))}</div><div class="small muted">${o.quote.nights} ${t('nights')} · ${t('inclTaxes')}</div>
+      <div class="small muted"><span data-avg>${money(o.quote.average_rate)}</span> ${t('avgRate')}</div>${o.rooms_left <= 3 ? `<div class="small text-bad">${o.rooms_left} ${t('left')}</div>` : ''}
       <button class="btn primary" data-book="${o.id}" ${o.quote.meets_min_stay ? '' : 'disabled'}>${t('book')}</button></div></article>`).join('')}</div>`
     : `<div class="notice warn">${t('noRooms')}</div>`}`;
+  $$('.rate-opt input', box).forEach((radio) => radio.addEventListener('change', () => {
+    const card = radio.closest('.offer');
+    $('[data-price]', card).textContent = money(+radio.dataset.total);
+    $('[data-avg]', card).textContent = money(+radio.dataset.avg);
+  }));
   $$('[data-book]', box).forEach((b) => b.addEventListener('click', () => {
     const offer = r.offers.find((o) => o.id === +b.dataset.book);
+    const picked = $('.rate-opt input:checked', b.closest('.offer'));
+    const plan = picked && picked.value ? offer.plans.find((p) => p.id === +picked.value) : null;
     if (!session || session.user.role !== 'guest') {
-      const params = new URLSearchParams({ book: offer.id, ...q });
+      const params = new URLSearchParams({ book: offer.id, plan: plan ? plan.id : '', ...q });
       location.href = '/login?next=' + encodeURIComponent('/#' + params.toString()) + '&register=1';
       return;
     }
-    confirmBooking(offer, q);
+    confirmBooking(offer, q, plan);
   }));
   box.scrollIntoView({ behavior: 'smooth' });
   return r.offers;
 }
 
-async function confirmBooking(offer, q) {
-  const q2 = offer.quote;
+async function confirmBooking(offer, q, plan = null) {
+  const q2 = plan ? plan.quote : offer.quote;
   const sc = +settings.service_charge_rate || 0, vat = +settings.vat_rate || 0;
   const service = q2.total * sc / 100;
   const tax = (q2.total + service) * vat / 100;
   const res = await modal({
     title: t('confirmBooking'), submit: t('confirm'),
-    body: `<dl class="kv"><dt>${t('rooms')}</dt><dd>${esc(offer.name)}</dd><dt>${t('arrival')}</dt><dd>${fmtDate(q.check_in)}</dd>
+    body: `<dl class="kv"><dt>${t('rooms')}</dt><dd>${esc(offer.name)}</dd>
+      <dt>${t('chooseRate')}</dt><dd>${esc(plan ? planName(plan) : t('standardRate'))} · ${t(plan ? plan.meal_plan : 'room_only')}${plan && !plan.refundable ? ` · <b class="text-bad">${t('nonRefundable')}</b>` : ''}</dd>
+      <dt>${t('arrival')}</dt><dd>${fmtDate(q.check_in)}</dd>
       <dt>${t('departure')}</dt><dd>${fmtDate(q.check_out)} (${q2.nights} ${t('nights')})</dd><dt>${t('guests')}</dt><dd>${q.adults} + ${q.children}</dd>
       <dt>${t('subtotal')}</dt><dd>${money(q2.total)}${q2.discount ? ` <span class="small muted">(−${money(q2.discount)})</span>` : ''}</dd>
       <dt>${t('service')} ${sc}%</dt><dd>${money(service)}</dd><dt>${t('vat')} ${vat}%</dt><dd>${money(tax)}</dd>
       <dt><b>${t('total')}</b></dt><dd><b>${money(q2.total + service + tax)}</b></dd></dl>
       <label class="field" style="margin-top:12px"><span>${t('specialRequests')}</span><textarea name="special_requests" maxlength="1000"></textarea></label>
-      <p class="small muted">${t('policy', { d: settings.free_cancellation_days })} Payment is taken at the hotel.</p>`,
-    onSubmit: (v) => POST('/portal/reservations', { ...q, room_type_id: offer.id, special_requests: v.special_requests }),
+      <p class="small muted">${plan && !plan.refundable ? t('nonRefundable') + '.' : t('policy', { d: settings.free_cancellation_days })} ${t('payAtHotel')}</p>`,
+    onSubmit: (v) => POST('/portal/reservations', { ...q, room_type_id: offer.id, rate_plan_id: plan ? plan.id : null, special_requests: v.special_requests }),
   });
   if (res) { toast(`${t('booked')} ${res.code}`, 'success'); setTimeout(() => { location.href = '/account#/stay/' + res.id; }, 900); }
 }

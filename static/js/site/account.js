@@ -1,11 +1,13 @@
 // Guest (client) portal: bookings, bill & invoice, room service, requests, reviews, profile, privacy.
 import { DEL, GET, POST, PUT, loadSession, logout } from '../core/api.js';
 import { $, $$, badge, configure, esc, field, fmtDate, fmtDateTime, formValues, guarded, label, modal, money, qty, settings, toast } from '../core/ui.js';
-import { getLang, t, toggleLang } from './i18n.js';
+import { getLang, otherLang, t, toggleLang } from './i18n.js';
+import { startTranslator } from '../core/i18n.js';
 
 let me;
 
 async function init() {
+  await startTranslator();   // puts server messages and status labels into Arabic too
   try { me = await loadSession(); } catch (e) { location.href = '/login?next=' + encodeURIComponent('/account' + location.hash); return; }
   if (me.user.role !== 'guest') { location.href = me.user.portal; return; }
   if (me.user.must_change_password) { location.href = '/login'; return; }
@@ -16,9 +18,13 @@ async function init() {
       <a href="#/">${t('myBookings')}</a><a href="#/profile">${t('profile')}</a><a href="#/privacy">${t('privacy')}</a>
       <a href="/" class="btn sm primary">${t('bookAnother')}</a><button class="link-btn" id="lang">${t('lang')}</button>
       <button class="link-btn" id="out">${t('signout')}</button></nav></header><main class="site-main account" id="view"></main>`;
-  $('#lang').addEventListener('click', toggleLang);
+  $('#lang').addEventListener('click', async () => {
+    if (!me.user.must_verify_email) { try { await POST('/portal/language', { language: otherLang() }); } catch (e) { /* not essential */ } }
+    toggleLang();
+  });
   $('#out').addEventListener('click', async () => { await logout(); location.href = '/'; });
   if (me.user.must_verify_email) { verifyNotice(); return; }
+  rememberLanguage();
   window.addEventListener('hashchange', route);
   window.addEventListener('auth:expired', () => { location.href = '/login?next=/account'; });
   route();
@@ -37,6 +43,17 @@ function verifyNotice() {
   $('#check').addEventListener('click', () => location.reload());
 }
 
+/** Tells the hotel, once per browser and language, which language this guest reads — their e-mails follow it. */
+function rememberLanguage() {
+  const mark = `${me.user.id}:${getLang()}`;
+  try {
+    if (localStorage.getItem('lang_saved') === mark) return;
+    POST('/portal/language', { language: getLang() }).then(() => localStorage.setItem('lang_saved', mark)).catch(() => {});
+  } catch (e) { /* storage unavailable */ }
+}
+
+const planLine = (r) => [r.rate_plan_name, t(r.meal_plan || 'room_only'), r.refundable ? '' : t('nonRefundable')].filter(Boolean).map(esc).join(' · ');
+
 async function route() {
   const h = location.hash.replace(/^#\/?/, '');
   const view = $('#view');
@@ -54,7 +71,7 @@ async function bookingsView(el) {
   const list = await GET('/portal/reservations');
   el.innerHTML = `<h1>${t('myBookings')}</h1><p class="muted">${esc(me.user.full_name)}</p>
     ${list.length ? `<div class="booking-list">${list.map((r) => `<a class="booking card" href="#/stay/${r.id}">
-      <div><b>${esc(r.room_type)}</b>${r.room_number ? ` · ${t('roomNo')} ${esc(r.room_number)}` : ''}<div class="small muted">${esc(r.code)}</div></div>
+      <div><b>${esc(r.room_type)}</b>${r.room_number ? ` · ${t('roomNo')} ${esc(r.room_number)}` : ''}<div class="small muted">${esc(r.code)} · ${planLine(r)}</div></div>
       <div>${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}<div class="small muted">${r.nights} ${t('nights')}</div></div>
       <div>${badge(r.status)}</div><div class="right"><b>${money(r.total)}</b>${r.balance > 0.004 ? `<div class="small text-bad">${t('balance')} ${money(r.balance)}</div>` : ''}</div></a>`).join('')}</div>`
     : `<div class="card card-body center"><p>${t('noBookings')}</p><a class="btn primary" href="/">${t('bookAnother')}</a></div>`}`;
@@ -66,7 +83,9 @@ async function stayView(el, id) {
   const inHouse = r.status === 'checked_in';
   el.innerHTML = `<a href="#/">← ${t('myBookings')}</a><h1>${esc(r.room_type)} ${badge(r.status)}</h1>
     <p class="muted">${esc(r.code)} · ${fmtDate(r.check_in)} → ${fmtDate(r.check_out)} · ${r.nights} ${t('nights')}${r.room_number ? ` · ${t('roomNo')} <b>${esc(r.room_number)}</b>` : ''}</p>
-    <div class="btn-row" style="margin-bottom:16px">${r.can_cancel ? `<button class="btn danger" id="cancel">${t('cancel')}</button>` : ''}
+    <p class="muted" id="plan">${planLine(r)}</p>
+    <div class="btn-row" style="margin-bottom:16px">${r.can_change ? `<button class="btn" id="change">${t('changeBooking')}</button>` : ''}
+      ${r.can_cancel ? `<button class="btn danger" id="cancel">${t('cancel')}</button>` : ''}
       ${r.invoice_id ? `<a class="btn" href="#/invoice/${r.id}">${t('invoice')}</a>` : ''}
       ${inHouse ? `<button class="btn primary" id="order">${t('roomService')}</button><button class="btn" id="req">${t('requests')}</button>` : ''}
       ${r.status === 'checked_out' ? `<button class="btn" id="review">${t('review')}</button>` : ''}</div>
@@ -85,6 +104,7 @@ async function stayView(el, id) {
     if (await modal({ title: t('cancel'), body: `<p>${esc(r.code)} · ${fmtDate(r.check_in)}</p>`, submit: t('cancel'), danger: true, cancel: t('back'), onSubmit: async () => true })
       && await guarded(() => POST(`/portal/reservations/${r.id}/cancel`), '✓')) route();
   });
+  b('#change', () => changeBooking(r));
   b('#order', () => orderFood(r));
   b('#req', async () => {
     const ok = await modal({ title: t('requests'), submit: t('send'),
@@ -101,6 +121,39 @@ async function stayView(el, id) {
       onSubmit: (v) => POST(`/portal/reservations/${r.id}/review`, v) });
     if (ok) toast(t('thanksReview'), 'success');
   });
+}
+
+/** Two steps: pick the new stay and see its price, then confirm. Nothing is saved until the second step. */
+async function changeBooking(r) {
+  const types = (await GET('/public/info')).room_types;
+  let wanted = { check_in: r.check_in, check_out: r.check_out, adults: r.adults, children: r.children, room_type_id: r.room_type_id };
+  const url = `/portal/reservations/${r.id}/change`;
+  const preview = await modal({
+    title: t('changeBooking'), submit: t('seePrice'), cancel: t('back'),
+    body: `<p class="small muted">${t('changeNote')}</p><div class="form-grid">
+      <label class="field"><span>${t('arrival')}</span><input type="date" name="check_in" value="${wanted.check_in}" required></label>
+      <label class="field"><span>${t('departure')}</span><input type="date" name="check_out" value="${wanted.check_out}" required></label>
+      <label class="field"><span>${t('adults')}</span><input type="number" name="adults" value="${wanted.adults}" min="1" max="10"></label>
+      <label class="field"><span>${t('children')}</span><input type="number" name="children" value="${wanted.children}" min="0" max="10"></label>
+      <label class="field full"><span>${t('roomType')}</span><select name="room_type_id">${types.map((x) =>
+        `<option value="${x.id}" ${x.id === wanted.room_type_id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label></div>`,
+    onSubmit: async (v) => {
+      wanted = { check_in: v.check_in, check_out: v.check_out, adults: v.adults, children: v.children, room_type_id: +v.room_type_id };
+      return (await POST(url, { ...wanted, preview: true })).preview;
+    },
+  });
+  if (!preview) return;
+  const ok = await modal({
+    title: t('changeBooking'), submit: t('confirmChange'), cancel: t('back'),
+    body: `<dl class="kv"><dt>${t('roomType')}</dt><dd>${esc(preview.room_type)}</dd>
+      <dt>${t('arrival')}</dt><dd>${fmtDate(preview.check_in)}</dd><dt>${t('departure')}</dt><dd>${fmtDate(preview.check_out)} (${preview.nights} ${t('nights')})</dd>
+      <dt>${t('guests')}</dt><dd>${preview.adults} + ${preview.children}</dd>
+      <dt>${t('avgRate')}</dt><dd>${money(preview.rate)}</dd>
+      <dt><b>${t('newPrice')}</b></dt><dd><b id="new-total">${money(preview.total)}</b> <span class="small muted">${t('inclTaxes')}</span></dd></dl>
+      ${preview.promo_dropped ? `<div class="notice warn" style="margin-top:10px">${t('promoDropped')}</div>` : ''}`,
+    onSubmit: () => POST(url, wanted),
+  });
+  if (ok) { toast(t('changed'), 'success'); route(); }
 }
 
 async function orderFood(r) {

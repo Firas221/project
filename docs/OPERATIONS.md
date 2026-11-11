@@ -13,10 +13,12 @@
    - hotel name in English and Arabic, address, contact details;
    - tax registration number, commercial register and tourism licence;
    - check-in/out times, weekend uplift and the online-booking policy.
-6. **Rooms & rates.** Create room types and rooms, and add photos to each room type (**Rooms & rates → Room types → Photos**); the first photo is the one shown on the booking website. Add seasons (high and low) and any promo codes.
+6. **Rooms & rates.** Create room types and rooms, and add photos to each room type (**Rooms & rates → Room types → Photos**); the first photo is the one shown on the booking website. Add seasons (high and low), any promo codes, and rate plans if you sell breakfast or board, or a non-refundable rate (**Rooms & rates → Seasons & promotions → Rate plans**).
 7. **Staff accounts.** Create them under **Users**; each gets a one-time password. Adjust what each role may do under **Roles & permissions**.
 8. **Two-factor authentication.** Turn it on under **My security**, then require it for admins in **Settings → Security**.
 9. **Night audit.** Either run it by hand each night, or turn on **Settings → Operations → Run the night audit automatically** and choose the time.
+10. **Housekeeping.** To have the daily stay-over cleaning tasks created for you, turn on **Settings → Operations → Create stay-over cleaning tasks automatically** and choose the time.
+11. **Reminder e-mails.** **Settings → Guest website → Reminder e-mail before arrival** sets how many days ahead guests are reminded (0 turns it off; the default is 2).
 
 ## Environment variables
 
@@ -46,7 +48,7 @@
 
 ## Monitoring
 
-`GET /api/health` answers `{"status": "ok", "schema": 3}` when the server and its database are working. Point your uptime monitor or load balancer at it; the Docker image already uses it as its health check.
+`GET /api/health` answers `{"status": "ok", "schema": 4}` (the number is the database version) when the server and its database are working. Point your uptime monitor or load balancer at it; the Docker image already uses it as its health check.
 
 ## E-mail confirmation for guests
 
@@ -64,6 +66,28 @@ Once SMTP is configured, a guest who registers gets a link (valid 48 hours) and 
 | Evening | Front desk | Print or export the **guest register** for the authorities. Close the cashier shift with a cash count. |
 | Night | Administrator | Run the **night audit**: no-shows are posted, the day's figures are locked in, and the business date moves forward. With the automatic night audit on, this happens by itself at the time you set (a time before noon closes the previous day; days missed while the server was off are caught up). |
 | Monthly | Administrator | **Reports → VAT report**. Export it for the tax return. Review the audit log and inventory valuation. |
+
+## Rate plans
+
+A rate plan is another way to sell the same room.
+
+- **Meals:** choose breakfast, half board or full board and set a supplement per adult and per child per night. It is added to the room rate, before service charge and VAT.
+- **Cheaper, non-refundable:** set a negative room-rate adjustment (for example -10%) and untick "Free cancellation". Guests cannot cancel or change such a booking online; the front desk still can.
+- Seasons, weekend uplift, promo codes and corporate discounts still apply on top.
+- A booking keeps its own copy of the plan, so editing or deleting a plan never changes bookings already made.
+
+## E-mails to guests
+
+| E-mail | Sent when |
+|---|---|
+| Confirm your e-mail address | A guest registers (when SMTP is configured) |
+| Booking confirmation | A booking is made, online or at the desk |
+| Your booking was changed | The guest changes dates, guests or room type online |
+| See you soon | A set number of days before arrival (not for bookings made inside that window) |
+| Booking cancelled | A booking is cancelled |
+| Your invoice | Check-out |
+
+Each one is sent in Arabic or English, as plain text plus an HTML version (right-to-left for Arabic). The language is the one the guest used on the website; for guests entered at the desk, choose it in the guest's profile ("Language for e-mails"). The hotel's Arabic name from Settings is used in Arabic e-mails.
 
 ## Moving to PostgreSQL later
 

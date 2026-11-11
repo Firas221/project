@@ -1,6 +1,8 @@
 // Rooms, room types & rates, seasonal pricing and promo codes.
 import { DEL, GET, POST, PUT } from '../core/api.js';
-import { $, badge, check, confirmBox, esc, field, fmtDate, guarded, modal, money, on, selectField, table, toast } from '../core/ui.js';
+import {
+  $, MEAL_PLANS, badge, check, confirmBox, esc, field, fmtDate, guarded, mealLabel, modal, money, on, selectField, table, toast,
+} from '../core/ui.js';
 
 export async function roomsView(el, { params, ctx, alive }) {
   const tab = params.tab || 'rooms';
@@ -58,8 +60,8 @@ export async function roomsView(el, { params, ctx, alive }) {
         && await guarded(() => DEL('/room-types/' + b.dataset.delType), 'Room type deleted')) ctx.refresh();
     });
   } else {
-    const [seasons, promos] = await Promise.all([GET('/seasons'), admin ? GET('/promos') : []]);
-    if (admin) actions.innerHTML = '<button class="btn" id="add-promo">+ Promo code</button><button class="btn primary" id="add-season">+ Season</button>';
+    const [seasons, promos, plans] = await Promise.all([GET('/seasons'), admin ? GET('/promos') : [], GET('/rate-plans?all=1')]);
+    if (admin) actions.innerHTML = '<button class="btn" id="add-plan">+ Rate plan</button><button class="btn" id="add-promo">+ Promo code</button><button class="btn primary" id="add-season">+ Season</button>';
     body.innerHTML = `<div class="grid g2"><div class="card"><div class="card-head"><h2>Seasons</h2></div>${table(['Season', 'Dates', 'Applies to', ['Adjust', 'num'], 'Min stay', ''],
       seasons.map((s) => `<tr><td><b>${esc(s.name)}</b> ${s.active ? '' : badge('closed', 'Off')}</td><td class="nowrap">${fmtDate(s.start_date)} – ${fmtDate(s.end_date)}</td>
         <td>${esc(s.room_type_name || 'All room types')}</td><td class="num ${s.adjust_pct < 0 ? 'text-good' : ''}">${s.adjust_pct > 0 ? '+' : ''}${s.adjust_pct}%</td>
@@ -70,7 +72,17 @@ export async function roomsView(el, { params, ctx, alive }) {
         <tr><td><b>${esc(p.code)}</b><div class="small muted">${esc(p.description)}</div></td><td>${p.discount_pct}%${p.online_only ? ' <span class="badge plain">online</span>' : ''}</td>
         <td class="nowrap small">${fmtDate(p.valid_from)} – ${fmtDate(p.valid_to)}</td><td>${p.used_count}${p.max_uses ? '/' + p.max_uses : ''}</td>
         <td class="actions"><button class="btn sm" data-promo="${p.id}">Edit</button>
-          <button class="btn sm ghost danger" data-del-promo="${p.id}" title="Delete promo code" aria-label="Delete promo code">✕</button></td></tr>`).join(''), 'No promo codes')}</div>` : ''}</div>`;
+          <button class="btn sm ghost danger" data-del-promo="${p.id}" title="Delete promo code" aria-label="Delete promo code">✕</button></td></tr>`).join(''), 'No promo codes')}</div>` : ''}</div>
+      <div class="card" style="margin-top:16px"><div class="card-head"><h2>Rate plans</h2></div>${table(['Plan', 'Meals', ['Room rate', 'num'], ['Per adult / night', 'num'], ['Per child / night', 'num'], 'Cancellation', 'Offered', ''],
+        plans.map((p) => `<tr><td><b>${esc(p.name)}</b>${p.name_ar ? ` <span class="small muted" dir="rtl">${esc(p.name_ar)}</span>` : ''}<div class="small muted">${esc(p.description)}</div></td>
+          <td>${esc(mealLabel(p.meal_plan))}</td><td class="num ${p.adjust_pct < 0 ? 'text-good' : ''}">${p.adjust_pct ? `${p.adjust_pct > 0 ? '+' : ''}${p.adjust_pct}%` : '—'}</td>
+          <td class="num">${p.per_adult ? '+' + money(p.per_adult) : '—'}</td><td class="num">${p.per_child ? '+' + money(p.per_child) : '—'}</td>
+          <td>${p.refundable ? 'Flexible' : badge('high', 'Non-refundable')}</td>
+          <td>${!p.active ? badge('closed', 'Off') : p.online ? badge('clean', 'Website and desk') : badge('info', 'Desk only')}</td>
+          <td class="actions">${admin ? `<button class="btn sm" data-plan="${p.id}">Edit</button>
+            <button class="btn sm ghost danger" data-del-plan="${p.id}" title="Delete rate plan" aria-label="Delete rate plan">✕</button>` : ''}</td></tr>`).join(''), 'No rate plans — every booking is room only with free cancellation')}
+        <div class="card-body small muted">A rate plan is another way to sell the same room: with meals (a supplement per person per night), or cheaper but non-refundable.
+          Guests choose one on the website; the desk chooses one in the booking form. Without a plan a booking is room only with free cancellation.</div></div>`;
     const seasonForm = async (s = {}) => {
       const ok = await modal({ title: s.id ? 'Edit season' : 'New season',
         body: `<div class="form-grid">${field('Name *', 'name', s.name, '', 'full')}${field('Start *', 'start_date', s.start_date, 'type="date"')}${field('End *', 'end_date', s.end_date, 'type="date"')}
@@ -88,6 +100,23 @@ export async function roomsView(el, { params, ctx, alive }) {
         onSubmit: (v) => (p.id ? PUT('/promos/' + p.id, v) : POST('/promos', v)) });
       if (ok) { toast('Promo code saved', 'success'); ctx.refresh(); }
     };
+    const planForm = async (p = {}) => {
+      const ok = await modal({ title: p.id ? 'Edit rate plan' : 'New rate plan',
+        body: `<div class="form-grid">${field('Name *', 'name', p.name)}${field('Name (Arabic)', 'name_ar', p.name_ar, 'dir="rtl"')}
+          ${field('Description', 'description', p.description, '', 'full')}${selectField('Meals', 'meal_plan', MEAL_PLANS, p.meal_plan || 'room_only')}
+          ${field('Room rate adjustment % (e.g. -10)', 'adjust_pct', p.adjust_pct ?? 0, 'type="number" step="0.5"')}
+          ${field('Supplement per adult / night', 'per_adult', p.per_adult ?? 0, 'type="number" step="0.01" min="0"')}${field('Supplement per child / night', 'per_child', p.per_child ?? 0, 'type="number" step="0.01" min="0"')}
+          ${check('Free cancellation (untick for a non-refundable rate)', 'refundable', p.id ? p.refundable : true, 'full')}
+          ${check('Offered on the booking website', 'online', p.id ? p.online : true)}${check('Active', 'active', p.id ? p.active : true)}</div>`,
+        onSubmit: (v) => (p.id ? PUT('/rate-plans/' + p.id, v) : POST('/rate-plans', v)) });
+      if (ok) { toast('Rate plan saved', 'success'); ctx.refresh(); }
+    };
+    if ($('#add-plan')) $('#add-plan').addEventListener('click', () => planForm());
+    on(body, '[data-plan]', 'click', (e, b) => planForm(plans.find((x) => x.id === +b.dataset.plan)));
+    on(body, '[data-del-plan]', 'click', async (e, b) => {
+      if (await confirmBox('Delete rate plan', 'Delete this rate plan? Bookings already made with it keep their meals and price.', 'Delete')
+        && await guarded(() => DEL('/rate-plans/' + b.dataset.delPlan), 'Rate plan deleted')) ctx.refresh();
+    });
     if ($('#add-season')) $('#add-season').addEventListener('click', () => seasonForm());
     if ($('#add-promo')) $('#add-promo').addEventListener('click', () => promoForm());
     on(body, '[data-season]', 'click', (e, b) => seasonForm(seasons.find((x) => x.id === +b.dataset.season)));
