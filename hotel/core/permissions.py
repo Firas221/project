@@ -2,9 +2,10 @@
 
 Access control is permission based: every API route declares the permission it
 needs; roles are bundles of permissions. The ``admin`` role implicitly holds
-every permission and cannot be edited. The permissions of the operational
-staff roles (staff, chef, housekeeper) are stored in the database and can be
-changed by an administrator. The ``guest`` role is used by hotel clients and
+every permission and cannot be edited. The permissions of every other staff
+role (front desk, chef, housekeeper, housekeeping supervisor, maintenance
+technician, storekeeper, accountant, manager) are stored in the database and
+can be changed by an administrator. The ``guest`` role is used by hotel clients and
 only reaches the guest-portal endpoints, which additionally enforce ownership.
 """
 from dataclasses import dataclass, field
@@ -16,25 +17,40 @@ class Role:
     STAFF = "staff"
     CHEF = "chef"
     HOUSEKEEPER = "housekeeper"
+    SUPERVISOR = "supervisor"        # housekeeping supervisor: assigns and inspects, does not clean
+    MAINTENANCE = "maintenance"      # maintenance technician
+    STOREKEEPER = "storekeeper"
+    ACCOUNTANT = "accountant"
+    MANAGER = "manager"              # runs the hotel day to day; no users, settings or backups
     GUEST = "guest"
 
-    ALL = (ADMIN, STAFF, CHEF, HOUSEKEEPER, GUEST)
-    EMPLOYEES = (ADMIN, STAFF, CHEF, HOUSEKEEPER)
-    EDITABLE = (STAFF, CHEF, HOUSEKEEPER)
+    EDITABLE = (MANAGER, STAFF, ACCOUNTANT, CHEF, SUPERVISOR, HOUSEKEEPER, MAINTENANCE, STOREKEEPER)
+    EMPLOYEES = (ADMIN,) + EDITABLE
+    ALL = EMPLOYEES + (GUEST,)
 
     LABELS = {
         ADMIN: "Administrator",
+        MANAGER: "Manager",
         STAFF: "Front desk staff",
+        ACCOUNTANT: "Accountant",
         CHEF: "Chef / kitchen",
+        SUPERVISOR: "Housekeeping supervisor",
         HOUSEKEEPER: "Housekeeper",
+        MAINTENANCE: "Maintenance technician",
+        STOREKEEPER: "Storekeeper",
         GUEST: "Guest (client)",
     }
     # The web portal each role lands on after signing in.
     PORTALS = {
         ADMIN: "/admin",
+        MANAGER: "/manager",
         STAFF: "/staff",
+        ACCOUNTANT: "/finance",
         CHEF: "/kitchen",
+        SUPERVISOR: "/housekeeping",
         HOUSEKEEPER: "/housekeeping",
+        MAINTENANCE: "/maintenance",
+        STOREKEEPER: "/store",
         GUEST: "/account",
     }
 
@@ -85,6 +101,7 @@ class Perm:
     REVIEWS_MANAGE = "reviews.manage"
 
     REPORTS_VIEW = "reports.view"
+    NIGHT_AUDIT_CLOSE = "nightaudit.close"
 
     USERS_MANAGE = "users.manage"
     ROLES_MANAGE = "roles.manage"
@@ -129,6 +146,7 @@ PERMISSION_CATALOG = (
     (Perm.INVENTORY_MANAGE, "Inventory", "Manage items, receive and adjust stock"),
     (Perm.PURCHASING_MANAGE, "Inventory", "Manage suppliers and purchase orders"),
     (Perm.REPORTS_VIEW, "Administration", "View management reports"),
+    (Perm.NIGHT_AUDIT_CLOSE, "Administration", "Close the business day (night audit)"),
     (Perm.USERS_MANAGE, "Administration", "Manage user accounts"),
     (Perm.ROLES_MANAGE, "Administration", "Change role permissions"),
     (Perm.SETTINGS_MANAGE, "Administration", "Change hotel settings"),
@@ -150,6 +168,38 @@ DEFAULT_ROLE_PERMISSIONS = {
     Role.CHEF: {
         Perm.KITCHEN_VIEW, Perm.KITCHEN_ORDERS, Perm.MENU_MANAGE,
         Perm.INVENTORY_VIEW, Perm.INVENTORY_REQUEST, Perm.MAINTENANCE_REPORT,
+    },
+    # Everything the departments do, plus rates, voids, reports, the audit log and closing the day.
+    # Not users, role permissions, settings or backups: those stay with the administrator.
+    Role.MANAGER: {
+        Perm.DASHBOARD_VIEW, Perm.RESERVATIONS_VIEW, Perm.RESERVATIONS_MANAGE, Perm.FRONTDESK_CHECKIN,
+        Perm.GUESTS_VIEW, Perm.GUESTS_MANAGE, Perm.REQUESTS_MANAGE, Perm.REVIEWS_MANAGE,
+        Perm.BILLING_VIEW, Perm.BILLING_CHARGE, Perm.BILLING_PAYMENT, Perm.BILLING_VOID,
+        Perm.ROOMS_VIEW, Perm.ROOMS_STATUS, Perm.ROOMS_MANAGE,
+        Perm.HOUSEKEEPING_VIEW, Perm.HOUSEKEEPING_MANAGE, Perm.LOSTFOUND_REPORT, Perm.LOSTFOUND_MANAGE,
+        Perm.MAINTENANCE_VIEW, Perm.MAINTENANCE_REPORT, Perm.MAINTENANCE_MANAGE,
+        Perm.KITCHEN_VIEW, Perm.ORDERS_CREATE, Perm.MENU_MANAGE,
+        Perm.INVENTORY_VIEW, Perm.INVENTORY_REQUEST, Perm.INVENTORY_APPROVE, Perm.INVENTORY_MANAGE, Perm.PURCHASING_MANAGE,
+        Perm.REPORTS_VIEW, Perm.NIGHT_AUDIT_CLOSE, Perm.AUDIT_VIEW,
+    },
+    # Money: invoices, VAT, corporate accounts, cashier shifts, reports. Sees reservations and guests but cannot change them.
+    Role.ACCOUNTANT: {
+        Perm.BILLING_VIEW, Perm.BILLING_PAYMENT, Perm.BILLING_VOID, Perm.REPORTS_VIEW,
+        Perm.RESERVATIONS_VIEW, Perm.GUESTS_VIEW, Perm.INVENTORY_VIEW,
+    },
+    # Runs the housekeeping board: creates, assigns and inspects tasks, sets room status. Does not clean rooms.
+    Role.SUPERVISOR: {
+        Perm.HOUSEKEEPING_VIEW, Perm.HOUSEKEEPING_MANAGE, Perm.ROOMS_VIEW, Perm.ROOMS_STATUS,
+        Perm.LOSTFOUND_REPORT, Perm.LOSTFOUND_MANAGE, Perm.MAINTENANCE_VIEW, Perm.MAINTENANCE_REPORT,
+        Perm.INVENTORY_REQUEST,
+    },
+    Role.MAINTENANCE: {
+        Perm.MAINTENANCE_VIEW, Perm.MAINTENANCE_REPORT, Perm.MAINTENANCE_MANAGE, Perm.ROOMS_VIEW,
+        Perm.LOSTFOUND_REPORT, Perm.INVENTORY_REQUEST,
+    },
+    Role.STOREKEEPER: {
+        Perm.INVENTORY_VIEW, Perm.INVENTORY_MANAGE, Perm.INVENTORY_APPROVE, Perm.INVENTORY_REQUEST,
+        Perm.PURCHASING_MANAGE, Perm.MAINTENANCE_REPORT,
     },
     Role.HOUSEKEEPER: {
         Perm.HOUSEKEEPING_WORK, Perm.LOSTFOUND_REPORT, Perm.MAINTENANCE_REPORT, Perm.INVENTORY_REQUEST,

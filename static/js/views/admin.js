@@ -5,7 +5,9 @@ import {
   pager, selectField, showSecret, table, toast,
 } from '../core/ui.js';
 
-const ROLE_OPTIONS = [['staff', 'Front desk staff'], ['chef', 'Chef / kitchen'], ['housekeeper', 'Housekeeper'], ['admin', 'Administrator']];
+const ROLE_OPTIONS = [['staff', 'Front desk staff'], ['manager', 'Manager'], ['accountant', 'Accountant'], ['chef', 'Chef / kitchen'],
+  ['supervisor', 'Housekeeping supervisor'], ['housekeeper', 'Housekeeper'], ['maintenance', 'Maintenance technician'],
+  ['storekeeper', 'Storekeeper'], ['admin', 'Administrator']];
 
 export async function usersView(el, { params, ctx, alive }) {
   const role = params.role || '';

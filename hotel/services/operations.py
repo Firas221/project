@@ -71,7 +71,7 @@ class HousekeepingService(Service):
 
     def _check_housekeeper(self, user_id):
         u = self.repos.users.get(user_id)
-        if not u or not u["active"] or u["role"] not in (Role.HOUSEKEEPER, Role.STAFF):
+        if not u or not u["active"] or u["role"] not in (Role.HOUSEKEEPER, Role.STAFF, Role.SUPERVISOR):
             raise ValidationError("Assignee must be an active housekeeper")
 
     def assign(self, task_id: int, user_id) -> dict:
@@ -184,10 +184,19 @@ class MaintenanceService(Service):
             raise Conflict(f"The room is occupied ({occupant['code']}). Move the guest before taking it out of order.")
         self.repos.rooms.set_status(room_id, "maintenance", reason[:200])
 
+    def technicians(self) -> list:
+        """Who a ticket can be given to: active maintenance technicians."""
+        self.require(Perm.MAINTENANCE_MANAGE)
+        return [{"id": u["id"], "full_name": u["full_name"]} for u in self.repos.users.active_by_role(Role.MAINTENANCE)]
+
     def update(self, ticket_id: int, data: dict) -> dict:
         self.require(Perm.MAINTENANCE_MANAGE)
         t = self.repos.maintenance.require(ticket_id, "Ticket")
         v = TicketUpdateSchema.validate(data, partial=True)
+        if v.get("assigned_to"):
+            who = self.repos.users.get(v["assigned_to"])
+            if not who or not who["active"] or who["role"] != Role.MAINTENANCE:
+                raise ValidationError("Assignee must be an active maintenance technician", field="assigned_to")
         fields = {k: v[k] for k in ("status", "priority", "assigned_to", "resolution") if k in v}
         if "out_of_order" in v and t["room_id"]:
             if v["out_of_order"] and not t["out_of_order"]:

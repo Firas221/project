@@ -55,6 +55,11 @@ DEMO_PASSWORDS = {
     "chef": "ChefPass123",
     "maid": "MaidPass123",
     "maid2": "MaidPass123",
+    "manager": "ManagerPass123",
+    "accountant": "AccountPass123",
+    "supervisor": "SuperPass123",
+    "tech": "TechPass123",
+    "store": "StorePass123",
     "guest": "GuestPass123",
 }
 
@@ -113,6 +118,11 @@ class DemoData:
             ("chef", "Marco Bellini", Role.CHEF, "marco.bellini@nileharbor.example"),
             ("maid", "Rosa Delgado", Role.HOUSEKEEPER, "rosa.delgado@nileharbor.example"),
             ("maid2", "Lina Haddad", Role.HOUSEKEEPER, "lina.haddad@nileharbor.example"),
+            ("manager", "Karim Mansour", Role.MANAGER, "karim.mansour@nileharbor.example"),
+            ("accountant", "Dina Fawzy", Role.ACCOUNTANT, "dina.fawzy@nileharbor.example"),
+            ("supervisor", "Mona Saleh", Role.SUPERVISOR, "mona.saleh@nileharbor.example"),
+            ("tech", "Tarek Aziz", Role.MAINTENANCE, "tarek.aziz@nileharbor.example"),
+            ("store", "Youssef Nabil", Role.STOREKEEPER, "youssef.nabil@nileharbor.example"),
         ]
         ids = {}
         for username, name, role, email in people:

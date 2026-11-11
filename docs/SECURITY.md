@@ -2,19 +2,26 @@
 
 ## Access control
 
-Access is permission-based, with five roles. Every API route declares an audience and a permission (`hotel/api/controllers`). Services re-check permissions for sensitive operations (defence in depth).
+Access is permission-based, with ten roles. Every API route declares an audience and a permission (`hotel/api/controllers`). Services re-check permissions for sensitive operations (defence in depth).
 
-| Role | Portal | Can do (defaults; the administrator can change staff, chef and housekeeper permissions) |
+| Role | Portal | Can do (defaults; the administrator can change every role's permissions except their own and the guest's) |
 |---|---|---|
 | Administrator | `/admin` (and every other staff portal) | Everything: users, roles and permissions, settings, audit log, night audit, voids and refunds, rates, purchasing, backups |
+| Manager | `/manager` | Everything the departments do, plus rates and promotions, voids and refunds, purchasing, reports, the audit log and closing the day. Not users, role permissions, settings or backups |
 | Front desk staff | `/staff` | Reservations, check-in/out, guests, folios and payments, cashier shift, housekeeping board, maintenance, guest requests, room service, lost & found, reviews |
+| Accountant | `/finance` | Reports and VAT report, tax invoices, corporate accounts, cashier shifts and payments; reservations, guests and stock are read-only |
 | Chef | `/kitchen` | Order board, menu and recipes, kitchen stock, supply requests, report issues |
+| Housekeeping supervisor | `/housekeeping` | The housekeeping board: create, assign and inspect tasks, set room status, lost & found, report issues. No guest or billing data |
 | Housekeeper | `/housekeeping` | Own and unassigned cleaning tasks, lost & found, supply requests, report issues |
+| Maintenance technician | `/maintenance` | Repair tickets (assign, resolve, take rooms out of order), room list, found items, supply requests |
+| Storekeeper | `/store` | Items, receiving and counts, suppliers, purchase orders, approving supply requests |
 | Guest | `/` and `/account` | Own bookings only, online booking and cancellation, bill and invoice, room service, requests, reviews, profile, data export and account deletion |
 
 **Object-level checks:**
 - Guests can only reach their own reservations. Other guests' records return 404, so their existence isn't revealed.
 - Housekeepers can only work on tasks assigned to them, or unassigned ones.
+- A maintenance ticket can only be assigned to an active maintenance technician.
+- Closing the business day has its own permission (`nightaudit.close`), held by default by the manager and the administrator.
 - Cashiers only see their own shifts unless they have report access.
 - Room numbers are hidden from guests until check-in.
 - Guests can change or cancel only their own bookings, only before the free-cancellation limit, and never a non-refundable one. A change is re-priced by the server at current rates; the browser cannot supply a price.

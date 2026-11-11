@@ -3,9 +3,13 @@
 A complete property-management system for a hotel in Egypt. There is a separate portal for each role:
 
 - administrators
+- managers
 - front-desk staff
+- accountants
 - chefs
-- housekeepers
+- housekeeping supervisors and housekeepers
+- maintenance technicians
+- storekeepers
 - guests (a public booking website, plus a guest account)
 
 Every portal works in **English and Arabic** (right-to-left); each person switches with one click and the choice is remembered.
@@ -27,6 +31,11 @@ python3 run.py --open     # also opens your browser
 | Front desk | http://localhost:8000/staff | `frontdesk` / `FrontDesk123` |
 | Kitchen (chef) | http://localhost:8000/kitchen | `chef` / `ChefPass123` |
 | Housekeeping (maids) | http://localhost:8000/housekeeping | `maid` / `MaidPass123` (also `maid2`) |
+| Housekeeping (supervisor) | http://localhost:8000/housekeeping | `supervisor` / `SuperPass123` |
+| Management | http://localhost:8000/manager | `manager` / `ManagerPass123` |
+| Accounting | http://localhost:8000/finance | `accountant` / `AccountPass123` |
+| Maintenance | http://localhost:8000/maintenance | `tech` / `TechPass123` |
+| Store | http://localhost:8000/store | `store` / `StorePass123` |
 
 Everyone signs in at `/login` and is sent to their own portal automatically.
 
@@ -42,12 +51,24 @@ It prints a one-time admin password; you must change it at first sign-in. Then r
 
 **Administrator** has everything below, plus:
 - Users, including one-time passwords, unlocking accounts, signing users out everywhere and resetting 2FA.
-- The **roles & permissions matrix**, which decides what staff, chefs and housekeepers may do.
+- The **roles & permissions matrix**, which decides what each of the eight other staff roles may do.
 - Hotel, tax and security settings.
 - Audit log and e-mail outbox.
 - Night audit (by hand, or automatically at a set time), backups and one-click restore.
 - Room types with photos, rates, seasons, promo codes and **rate plans** (breakfast, half or full board; non-refundable rates).
 - Purchasing, refunds and voids.
+
+**Manager** runs the hotel day to day: every department's screens, rates and promotions, voids and refunds, purchasing, reports, the audit log and closing the day. Users, role permissions, settings and backups stay with the administrator.
+
+**Accountant**
+- Reports, the VAT report and exports, tax invoices, corporate accounts (city ledger) and cashier shifts.
+- Reservations, guests and stock value are visible but cannot be changed.
+
+**Housekeeping supervisor** runs the housekeeping board: creates and assigns cleaning tasks, inspects finished rooms, sets room status, handles lost & found.
+
+**Maintenance technician** works the repair tickets (those assigned to them are marked), takes rooms out of order and back, and requests parts from the store.
+
+**Storekeeper** keeps the stock: items, receiving, counts, suppliers, purchase orders, and approving the departments' supply requests.
 
 **Front desk**
 - Dashboard: arrivals, departures, occupancy and payments.
@@ -98,12 +119,12 @@ It prints a one-time admin password; you must change it at first sign-in. Then r
 cd tests && python3 -m unittest -v
 ```
 
-There are 87 Python tests. They start the real server on a temporary database and cover:
-- security: sign-in, lockout, sessions, CSRF, cross-site requests, the full role matrix, guests' data isolation, 2FA, password reset, e-mail confirmation, privacy erasure, path traversal, SQL injection, CSV injection, photo-upload checks;
+There are 97 Python tests. They start the real server on a temporary database and cover:
+- security: sign-in, lockout, sessions, CSRF, cross-site requests, the full role matrix for all ten roles, guests' data isolation, 2FA, password reset, e-mail confirmation, privacy erasure, path traversal, SQL injection, CSV injection, photo-upload checks;
 - every workflow across departments, plus backup restore, the scheduled jobs (night audit, stay-over tasks, arrival reminders), rate plans, paging and e-mail language;
 - unit tests for validation, the tax maths and the TOTP test vectors.
 
-There are also 19 browser tests that drive the real portals in headless Chromium: every screen of every staff portal, the Arabic right-to-left mode (including messages from the server), photo upload, the delete buttons, backup restore, online booking with rate plans, guests changing a booking, paged lists, self-refreshing screens and e-mail confirmation. They are the only part of the project that needs Node.js:
+There are also 27 browser tests that drive the real portals in headless Chromium: every screen of every staff portal for every role, the Arabic right-to-left mode (including messages from the server), photo upload, the delete buttons, backup restore, online booking with rate plans, guests changing a booking, paged lists, self-refreshing screens and e-mail confirmation. They are the only part of the project that needs Node.js:
 
 ```bash
 npm install && npx playwright install chromium    # once

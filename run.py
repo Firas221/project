@@ -59,9 +59,12 @@ def main():
     scheme = "https" if cfg.tls_cert else "http"
     url = f"{scheme}://{'localhost' if cfg.host in ('0.0.0.0', '127.0.0.1') else cfg.host}:{cfg.port}"
     print(f"\n  Hotel system running at {url}   (database: {os.path.abspath(cfg.db_path)})")
-    print("  Portals: /  (guest website)  /login  /admin  /staff  /kitchen  /housekeeping  /account")
+    print("  Portals: /  (guest website)  /login  /admin  /manager  /staff  /finance  /kitchen  /housekeeping")
+    print("           /maintenance  /store  /account")
     if info.get("demo"):
         print("  Demo logins: admin/AdminPass123  frontdesk/FrontDesk123  chef/ChefPass123  maid/MaidPass123")
+        print("               manager/ManagerPass123  accountant/AccountPass123  supervisor/SuperPass123")
+        print("               tech/TechPass123  store/StorePass123")
         print("               guest: amelia.hart@example.com / GuestPass123")
     elif info.get("admin_password"):
         print(f"  First start: sign in as 'admin' with the one-time password  {info['admin_password']}")

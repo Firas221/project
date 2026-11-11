@@ -139,7 +139,7 @@ class NightAuditService(Service):
 
     def close_day(self, mark_no_shows: bool = True, notes: str = "") -> dict:
         self.require(Perm.REPORTS_VIEW)
-        self.require(Perm.SETTINGS_MANAGE)
+        self.require(Perm.NIGHT_AUDIT_CLOSE)
         bd = self.business_date()
         if bd > today_iso():
             raise Conflict(f"Business date {bd} is in the future; nothing to close yet")

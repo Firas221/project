@@ -113,16 +113,17 @@ async function logLostItem(roomId, roomNumber, ctx) {
 // ====================================================================== maintenance
 export async function maintenanceView(el, { params, ctx, alive }) {
   const status = params.status ?? 'active';
-  const [tickets, rooms] = await Promise.all([GET('/maintenance?status=' + status), GET('/rooms')]);
-  if (!alive()) return;
   const manage = ctx.can('maintenance.manage');
+  const [tickets, rooms, technicians] = await Promise.all([GET('/maintenance?status=' + status), GET('/rooms'), manage ? GET('/maintenance/staff') : []]);
+  if (!alive()) return;
   el.innerHTML = `<div class="page-head"><div class="grow"><h1>Maintenance</h1><div class="sub">Repair tickets and out-of-order rooms.</div></div>
       <select id="st" style="width:auto">${options([['active', 'Open & in progress'], ['resolved', 'Resolved'], ['closed', 'Closed'], ['', 'All']], status)}</select>
       ${ctx.can('maintenance.report') ? '<button class="btn primary" id="new">+ Report issue</button>' : ''}</div>
-    <div class="card">${table(['Ticket', 'Where', 'Issue', 'Priority', 'Status', 'Reported', ''], tickets.map((t) => `<tr>
+    <div class="card">${table(['Ticket', 'Where', 'Issue', 'Priority', 'Status', 'Assigned', 'Reported', ''], tickets.map((t) => `<tr class="${t.assigned_to === ctx.user.id ? 'row-mine' : ''}">
       <td><b>${esc(t.code)}</b></td><td>${t.room_number ? 'Room ' + esc(t.room_number) : esc(t.location)}${t.out_of_order ? ' <span class="badge b-bad plain">OOO</span>' : ''}</td>
       <td>${esc(t.title)}${t.description ? `<div class="small muted">${esc(t.description)}</div>` : ''}${t.resolution ? `<div class="small text-good">✓ ${esc(t.resolution)}</div>` : ''}</td>
-      <td>${badge(t.priority)}</td><td>${badge(t.status)}</td><td class="small">${fmtDateTime(t.created_at)}<br>${esc(t.reported_by_name || '')}</td>
+      <td>${badge(t.priority)}</td><td>${badge(t.status)}</td><td>${t.assigned_name ? esc(t.assigned_name) : '<span class="muted">—</span>'}</td>
+      <td class="small">${fmtDateTime(t.created_at)}<br>${esc(t.reported_by_name || '')}</td>
       <td class="actions">${manage ? `<button class="btn sm" data-edit="${t.id}">Update</button>` : ''}</td></tr>`).join(''), 'No tickets')}</div>`;
   $('#st', el).addEventListener('change', (e) => { location.hash = '#/maintenance?status=' + e.target.value; });
   if ($('#new', el)) $('#new', el).addEventListener('click', async () => {
@@ -136,9 +137,11 @@ export async function maintenanceView(el, { params, ctx, alive }) {
     const t = tickets.find((x) => x.id === +b.dataset.edit);
     const ok = await modal({ title: `Update ${t.code}`,
       body: `<div class="form-grid">${selectField('Status', 'status', [['open', 'Open'], ['in_progress', 'In progress'], ['resolved', 'Resolved'], ['closed', 'Closed']], t.status)}
-        ${selectField('Priority', 'priority', PRIORITIES, t.priority)}${t.room_id ? check('Room out of order', 'out_of_order', t.out_of_order, 'full') : ''}
+        ${selectField('Priority', 'priority', PRIORITIES, t.priority)}
+        ${selectField('Assign to', 'assigned_to', [['', '— Unassigned —']].concat(technicians.map((u) => [u.id, u.full_name])), t.assigned_to || '', 'full')}
+        ${t.room_id ? check('Room out of order', 'out_of_order', t.out_of_order, 'full') : ''}
         ${textField('Resolution / work done', 'resolution', t.resolution)}<div class="full small muted">Resolving releases the room and schedules a deep clean.</div></div>`,
-      onSubmit: (v) => PUT('/maintenance/' + t.id, v) });
+      onSubmit: (v) => { v.assigned_to = v.assigned_to || null; return PUT('/maintenance/' + t.id, v); } });
     if (ok) { toast('Ticket updated', 'success'); ctx.refresh(); }
   });
 }

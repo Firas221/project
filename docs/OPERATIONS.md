@@ -14,7 +14,7 @@
    - tax registration number, commercial register and tourism licence;
    - check-in/out times, weekend uplift and the online-booking policy.
 6. **Rooms & rates.** Create room types and rooms, and add photos to each room type (**Rooms & rates → Room types → Photos**); the first photo is the one shown on the booking website. Add seasons (high and low), any promo codes, and rate plans if you sell breakfast or board, or a non-refundable rate (**Rooms & rates → Seasons & promotions → Rate plans**).
-7. **Staff accounts.** Create them under **Users**; each gets a one-time password. Adjust what each role may do under **Roles & permissions**.
+7. **Staff accounts.** Create them under **Users** and pick the role (manager, front desk, accountant, chef, housekeeping supervisor, housekeeper, maintenance technician or storekeeper); each gets a one-time password and lands on that role's portal. Adjust what each role may do under **Roles & permissions**. A small hotel does not need every role: one person can simply be given the manager role.
 8. **Two-factor authentication.** Turn it on under **My security**, then require it for admins in **Settings → Security**.
 9. **Night audit.** Either run it by hand each night, or turn on **Settings → Operations → Run the night audit automatically** and choose the time.
 10. **Housekeeping.** To have the daily stay-over cleaning tasks created for you, turn on **Settings → Operations → Create stay-over cleaning tasks automatically** and choose the time.
@@ -59,13 +59,15 @@ Once SMTP is configured, a guest who registers gets a link (valid 48 hours) and 
 | When | Who | What |
 |---|---|---|
 | Morning | Front desk | Open a **cashier shift** with the cash float. Check arrivals and departures on the dashboard. |
-| Morning | Housekeeping supervisor | **Generate stay-over tasks** and assign rooms to housekeepers. |
+| Morning | Housekeeping supervisor | **Generate stay-over tasks** (or let the system do it) and assign rooms to housekeepers. Inspect rooms as they are finished. |
+| All day | Maintenance technician | Work the repair tickets assigned at the desk; resolving a ticket puts the room back in service. |
+| All day | Storekeeper | Receive deliveries, approve supply requests, reorder low stock. |
 | All day | Housekeepers | Work through "My rooms". Report issues and log found items. |
 | All day | Chef | Work the order board. Mark dishes unavailable when ingredients run out. Request supplies. |
 | Check-out | Front desk | Settle the folio. The system issues the tax invoice and creates the cleaning task. |
 | Evening | Front desk | Print or export the **guest register** for the authorities. Close the cashier shift with a cash count. |
-| Night | Administrator | Run the **night audit**: no-shows are posted, the day's figures are locked in, and the business date moves forward. With the automatic night audit on, this happens by itself at the time you set (a time before noon closes the previous day; days missed while the server was off are caught up). |
-| Monthly | Administrator | **Reports → VAT report**. Export it for the tax return. Review the audit log and inventory valuation. |
+| Night | Manager or administrator | Run the **night audit**: no-shows are posted, the day's figures are locked in, and the business date moves forward. With the automatic night audit on, this happens by itself at the time you set (a time before noon closes the previous day; days missed while the server was off are caught up). |
+| Monthly | Accountant | **Reports → VAT report**. Export it for the tax return. Review the audit log and inventory valuation. |
 
 ## Rate plans
 

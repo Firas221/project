@@ -18,6 +18,10 @@ PAGES = {
     "/staff": "staff.html",
     "/kitchen": "kitchen.html",
     "/housekeeping": "housekeeping.html",
+    "/manager": "manager.html",
+    "/finance": "finance.html",
+    "/maintenance": "maintenance.html",
+    "/store": "store.html",
     "/account": "account.html",
     "/privacy": "privacy.html",
 }

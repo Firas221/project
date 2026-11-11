@@ -60,6 +60,10 @@ class MaintenanceController(Controller):
     def report(self):
         return self.svc(MaintenanceService).report(self.body)
 
+    @get("/maintenance/staff", perm=Perm.MAINTENANCE_MANAGE)
+    def technicians(self):
+        return self.svc(MaintenanceService).technicians()
+
     @put("/maintenance/{ticket_id}", perm=Perm.MAINTENANCE_MANAGE)
     def update(self, ticket_id):
         return self.svc(MaintenanceService).update(ticket_id, self.body)

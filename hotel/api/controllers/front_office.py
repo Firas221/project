@@ -1,5 +1,6 @@
 """Front office: dashboard, reservations, guests, rooms, pricing, billing, cashier, companies."""
 from ...core.clock import today_iso
+from ...core.errors import PermissionDenied
 from ...core.permissions import Perm
 from ...core.validation import Bool, Int, Number
 from ...services import (BillingService, CashierService, CompanyService, DashboardService, GuestService,
@@ -277,8 +278,10 @@ class CashierController(Controller):
 
 
 class CompanyController(Controller):
-    @get("/companies", perm=Perm.RESERVATIONS_VIEW)
+    @get("/companies")
     def list(self):
+        if not self.req.user.can_any(Perm.RESERVATIONS_VIEW, Perm.BILLING_VIEW):
+            raise PermissionDenied()
         return self.svc(CompanyService).list()
 
     @get("/companies/{company_id}", perm=Perm.BILLING_VIEW)

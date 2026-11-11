@@ -196,7 +196,7 @@ export async function taxView(el, { params, alive }) {
 export async function nightAuditView(el, { ctx, alive }) {
   const a = await GET('/night-audit');
   if (!alive()) return;
-  const canClose = ctx.can('settings.manage');
+  const canClose = ctx.can('nightaudit.close');
   el.innerHTML = `<div class="page-head"><div class="grow"><h1>Night audit</h1><div class="sub">Close the business day: no-shows are posted, the day's figures are locked in, and the date rolls forward.</div></div></div>
     <div class="grid g2"><div class="card"><div class="card-head"><h2 class="grow">Business date ${fmtDate(a.business_date)}</h2></div><div class="card-body stack">
       ${a.pending_arrivals.length ? `<div class="notice warn">${a.pending_arrivals.length} arrival(s) not checked in: ${a.pending_arrivals.map((r) => esc(r.code + ' ' + r.guest_name)).join(', ')}. They will be marked as no-show.</div>` : '<div class="notice">All arrivals are checked in.</div>'}
@@ -204,7 +204,7 @@ export async function nightAuditView(el, { ctx, alive }) {
       ${a.open_shifts.length ? `<div class="notice warn">Open cashier shifts: ${a.open_shifts.map((s) => esc(s.user_name)).join(', ')}.</div>` : ''}
       ${canClose ? `<form id="close" class="stack">${check('Mark pending arrivals as no-show', 'mark_no_shows', true)}${field('Notes', 'notes')}
         <button class="btn primary" ${a.can_close ? '' : 'disabled'}>Close ${fmtDate(a.business_date)}</button>
-        ${a.can_close ? '' : '<div class="small muted">This business date has not finished yet.</div>'}</form>` : '<p class="small muted">Only administrators can close the day.</p>'}</div></div>
+        ${a.can_close ? '' : '<div class="small muted">This business date has not finished yet.</div>'}</form>` : '<p class="small muted">Only a manager or administrator can close the day.</p>'}</div></div>
       <div class="card"><div class="card-head"><h2>Closed days</h2></div>${table(['Date', ['Sold', 'num'], ['Room rev.', 'num'], ['Other', 'num'], ['Payments', 'num'], ['No-shows', 'num'], 'Closed by'],
         a.history.map((d) => `<tr><td>${fmtDate(d.business_date)}</td><td class="num">${d.rooms_sold}/${d.rooms_total}</td><td class="num">${money(d.room_revenue)}</td>
         <td class="num">${money(d.other_revenue)}</td><td class="num">${money(d.payments)}</td><td class="num">${d.no_shows}</td><td class="small">${esc(d.closed_by_name || '')}</td></tr>`).join(''), 'No days closed yet')}</div></div>`;

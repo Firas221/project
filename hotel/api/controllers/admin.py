@@ -113,7 +113,7 @@ class ReportController(Controller):
     def night_audit(self):
         return self.svc(NightAuditService).preview()
 
-    @post("/night-audit/close", perm=Perm.SETTINGS_MANAGE)
+    @post("/night-audit/close", perm=Perm.NIGHT_AUDIT_CLOSE)
     def close_day(self):
         return self.svc(NightAuditService).close_day(bool(self.body.get("mark_no_shows", True)), self.body.get("notes", ""))
 

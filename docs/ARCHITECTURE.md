@@ -73,6 +73,7 @@ The system is a layered, object-oriented application. Each layer has one job and
 3. **Rules:** add a service method that validates with a `Schema`, calls `self.require(Perm.X)` and `self.audit(...)`.
 4. **API:** add a controller method with `@post("/path", perm=Perm.X)` and register the controller in `controllers/__init__.py`.
 5. **Permission:** if it is new, add it to `Perm`, `PERMISSION_CATALOG` and `DEFAULT_ROLE_PERMISSIONS`. It appears in the admin matrix automatically.
+   **Role:** to add a role, add it to `Role` (name, label, portal) and `DEFAULT_ROLE_PERMISSIONS` in `core/permissions.py`, to `ROLE_OPTIONS` in `views/admin.js`, and give it a portal in `portals/portals.js` (plus a page in `static/` and `PAGES` in `http/server.py` if the portal is new). Existing databases pick the role up at the next start.
 6. **UI:** add a view in `static/js/views/`, list it in `portals/catalog.js` and add its key to the portals that should show it.
 7. **Arabic:** add any new on-screen phrase to `static/js/core/ar.js` (staff portals) or `static/js/site/i18n.js` (guest pages).
 8. **Tests:** add a test in `tests/`.

@@ -309,3 +309,7 @@ select.compact { padding: 4px 6px; font-size: 12px; width: auto; max-width: 160p
 
 /* previous / next under long lists */
 .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; border-top: 1px solid var(--border); }
+
+/* a maintenance ticket assigned to the person looking at the list */
+tr.row-mine td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+[dir="rtl"] tr.row-mine td:first-child { box-shadow: inset -3px 0 0 var(--primary); }

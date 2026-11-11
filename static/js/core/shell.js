@@ -5,9 +5,13 @@ import { isArabic, startTranslator, toggleLang } from './i18n.js';
 
 const PORTALS = [
   ['/admin', 'Admin', (u) => u.role === 'admin'],
+  ['/manager', 'Management', (u) => u.role === 'admin' || u.role === 'manager'],
   ['/staff', 'Front desk', (u) => u.permissions.includes('dashboard.view')],
   ['/kitchen', 'Kitchen', (u) => u.permissions.includes('kitchen.view')],
   ['/housekeeping', 'Housekeeping', (u) => u.permissions.includes('housekeeping.work') || u.permissions.includes('housekeeping.manage')],
+  ['/finance', 'Accounting', (u) => u.permissions.includes('billing.view') && u.permissions.includes('reports.view')],
+  ['/maintenance', 'Maintenance', (u) => u.permissions.includes('maintenance.manage')],
+  ['/store', 'Store', (u) => u.permissions.includes('inventory.manage')],
 ];
 
 export const can = (user, perm) => !perm || user.role === 'admin' || user.permissions.includes(perm);
@@ -53,8 +57,10 @@ export async function startPortal(cfg) {
 
 function renderLayout(cfg, ctx) {
   const { user, settings } = ctx;
+  cfg.nav.forEach((n) => { if (n.labelFor) n.label = n.labelFor(user); });
   const nav = cfg.nav.filter((n) => n.sep || ctx.can(n.perm));
-  const portals = PORTALS.filter(([, , ok]) => ok(user));
+  // The manager's portal already holds every department's screens, so there is nothing to switch to.
+  const portals = user.role === 'manager' ? [] : PORTALS.filter(([, , ok]) => ok(user));
   document.body.innerHTML = `
     <div class="app portal-${esc(cfg.key)}">
       <aside class="sidebar" id="sidebar">

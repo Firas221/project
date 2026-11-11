@@ -49,7 +49,8 @@ class StockRequestSchema(Schema):
     lines = ListOf(LineSchema, min_items=1, max_items=50)
 
 
-ROLE_DEPARTMENT = {Role.CHEF: "kitchen", Role.HOUSEKEEPER: "housekeeping", Role.STAFF: "front_office"}
+ROLE_DEPARTMENT = {Role.CHEF: "kitchen", Role.HOUSEKEEPER: "housekeeping", Role.SUPERVISOR: "housekeeping",
+                   Role.MAINTENANCE: "maintenance", Role.STAFF: "front_office", Role.MANAGER: "front_office"}
 
 
 class InventoryService(Service):
