@@ -1,5 +1,5 @@
 """Reservations and folio lines (charges, payments)."""
-from .base import BaseRepository, QueryBuilder
+from .base import BaseRepository, QueryBuilder, page_of
 
 ACTIVE = ("booked", "checked_in")
 
@@ -8,7 +8,8 @@ class ReservationRepository(BaseRepository):
     table = "reservations"
     columns = ("code", "guest_id", "room_id", "check_in", "check_out", "adults", "children", "rate", "status", "source",
                "special_requests", "notes", "created_by", "checked_in_at", "checked_out_at", "cancelled_at", "company_id",
-               "bill_to_company", "group_code", "group_name", "promo_code", "rate_note")
+               "bill_to_company", "group_code", "group_name", "promo_code", "rate_note", "rate_plan_id", "rate_plan_name",
+               "meal_plan", "refundable", "reminder_sent_at")
     select_sql = (
         "SELECT t.*, g.first_name || ' ' || g.last_name AS guest_name, g.email AS guest_email, g.phone AS guest_phone,"
         " g.vip AS guest_vip, rm.number AS room_number, rt.name AS room_type, rt.id AS room_type_id,"
@@ -32,7 +33,8 @@ class ReservationRepository(BaseRepository):
     def occupant(self, room_id: int):
         return self.fetch_one("SELECT * FROM reservations WHERE room_id=? AND status='checked_in'", (room_id,))
 
-    def search(self, status=None, q=None, date_from=None, date_to=None, guest_id=None, limit=1000) -> list:
+    def search(self, status=None, q=None, date_from=None, date_to=None, guest_id=None, limit=1000, page=None,
+               per_page=None):
         qb = QueryBuilder(self.select_sql)
         if status == "active":
             qb.add("t.status IN ('booked','checked_in')")
@@ -45,7 +47,15 @@ class ReservationRepository(BaseRepository):
         qb.add_if(date_from, "t.check_out > ?", date_from)
         qb.add_if(date_to, "t.check_in <= ?", date_to)
         qb.add_if(guest_id, "t.guest_id = ?", guest_id)
+        if page is not None:
+            return page_of(self, qb, self.default_order, page, per_page)
         return self.fetch_all(qb.sql(self.default_order, limit), qb.args)
+
+    def due_for_reminder(self, first_day: str, last_day: str) -> list:
+        """Booked arrivals in the window whose guest has an e-mail address and has not been reminded yet."""
+        return self.fetch_all(self.select_sql + " WHERE t.status='booked' AND t.reminder_sent_at IS NULL"
+                              " AND t.check_in BETWEEN ? AND ? AND g.email <> '' AND g.anonymized_at IS NULL"
+                              " ORDER BY t.check_in LIMIT 200", (first_day, last_day))
 
     def arrivals(self, day: str) -> list:
         return self.fetch_all(self.select_sql + " WHERE t.status='booked' AND t.check_in <= ? AND t.check_out > ?"

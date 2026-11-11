@@ -1,8 +1,8 @@
 // Inventory: items, stock ledger, suppliers, purchase orders, supply requests (store + departments).
 import { DEL, GET, POST, PUT, qs } from '../core/api.js';
 import {
-  $, $$, badge, bindRowLinks, check, confirmBox, esc, field, fmtDate, fmtDateTime, guarded, label, modal, money, on,
-  options, qty, selectField, table, textField, tile, toast,
+  $, $$, PAGE_SIZE, badge, bindPager, bindRowLinks, check, confirmBox, esc, field, fmtDate, fmtDateTime, guarded, label, modal, money, on,
+  options, pager, qty, selectField, table, textField, tile, toast,
 } from '../core/ui.js';
 
 const DEPTS = [['general', 'General'], ['housekeeping', 'Housekeeping'], ['kitchen', 'Kitchen'], ['minibar', 'Minibar'], ['maintenance', 'Maintenance'], ['front_office', 'Front office']];
@@ -57,13 +57,15 @@ async function movementsTab(body, actions, ctx, params, alive) {
   body.innerHTML = `<div class="toolbar"><select id="kind">${options([['', 'All movements'], ['receive', 'Received'], ['issue', 'Issued to departments'], ['consume', 'Kitchen consumption'],
     ['sale', 'Guest sales'], ['return', 'Returns'], ['adjust', 'Count adjustments']])}</select><label class="check small">From <input type="date" id="from"></label>
     <label class="check small">To <input type="date" id="to"></label></div><div class="card" id="list"></div>`;
-  const load = async () => {
+  const load = async (page = 1) => {
     const f = { kind: $('#kind').value, from: $('#from').value, to: $('#to').value };
-    const list = await GET('/movements?' + qs(f));
+    $('#exp').href = '/api/export/movements?' + qs({ from: f.from, to: f.to });
+    const found = await GET('/movements?' + qs({ ...f, page, per_page: PAGE_SIZE }));
     if (!alive()) return;
-    $('#list').innerHTML = movementTable(list, true);
+    $('#list').innerHTML = movementTable(found.items, true) + pager(found);
+    bindPager(body, load);
   };
-  ['#kind', '#from', '#to'].forEach((s) => $(s).addEventListener('change', load));
+  ['#kind', '#from', '#to'].forEach((s) => $(s).addEventListener('change', () => load()));
   await load();
 }
 

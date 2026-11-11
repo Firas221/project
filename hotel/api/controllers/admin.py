@@ -1,15 +1,19 @@
 """Administration: users, roles, settings, audit, reports, night audit, backups, exports."""
 import csv
 import io
+import logging
 import re
 
 from ...core.clock import today_iso
-from ...core.errors import NotFound, PermissionDenied
+from ...core.errors import NotFound, PermissionDenied, ValidationError
 from ...core.permissions import Perm
 from ...http.messages import Download
 from ...services import (AuditService, GuestService, InventoryService, NightAuditService, ReportService,
                          ReservationService, RoleService, SettingsService, UserAdminService)
 from ..router import Controller, get, post, put
+
+
+log = logging.getLogger("hotel.admin")
 
 
 def to_csv(name: str, header: list, rows: list) -> Download:
@@ -89,7 +93,7 @@ class AuditController(Controller):
     @get("/audit", perm=Perm.AUDIT_VIEW)
     def list(self):
         return self.svc(AuditService).search(q=self.q("q"), action=self.q("action"), date_from=self.q("from"),
-                                             date_to=self.q("to"))
+                                             date_to=self.q("to"), **self.paging())
 
     @get("/outbox", perm=Perm.AUDIT_VIEW)
     def outbox(self):
@@ -123,6 +127,30 @@ class ReportController(Controller):
         self.req.ctx.service(AuditService).audit("backup_manual", "backup", None, result["file"])
         return result
 
+    @post("/backups/restore", perm=Perm.SETTINGS_MANAGE)
+    def restore(self):
+        """Replaces all current data with a backup. Needs the administrator's password again."""
+        ctx = self.req.ctx
+        if not self.req.user.is_admin:
+            raise PermissionDenied("Only an administrator can restore a backup")
+        if not ctx.app.hasher.verify(str(self.body.get("password") or ""), ctx.repos.users.password_hash(self.req.user.id)):
+            raise ValidationError("Password is incorrect", field="password")
+        try:
+            path = ctx.app.backups.resolve(self.body.get("file"))
+        except ValueError as e:
+            raise NotFound(str(e))
+        who = self.req.user.username
+        ctx.conn.execute("COMMIT")  # release this request's write lock so the restore can replace the database
+        try:
+            result = ctx.app.restore_backup(path)
+        except ValueError as e:
+            raise ValidationError(str(e))
+        log.warning("Backup %s restored by %s from %s", result["restored"], who, self.req.ip)
+        return result
+
+
+EXPORT_ROWS = 100_000   # exports hold everything in the period, not just the first screenful
+
 
 class ExportController(Controller):
     EXPORTS = {
@@ -154,14 +182,14 @@ class ExportController(Controller):
         frm, to = self.q("from"), self.q("to")
         rows = {
             "reservations": lambda: self.svc(ReservationService).search(status=self.q("status"), q=self.q("q"),
-                                                                        date_from=frm, date_to=to),
-            "guests": lambda: self.svc(GuestService).search(self.q("q")),
+                                                                        date_from=frm, date_to=to, limit=EXPORT_ROWS),
+            "guests": lambda: self.svc(GuestService).search(self.q("q"), limit=EXPORT_ROWS),
             "items": lambda: self.svc(InventoryService).search(),
-            "movements": lambda: self.svc(InventoryService).movements(date_from=frm, date_to=to),
+            "movements": lambda: self.svc(InventoryService).movements(date_from=frm, date_to=to, limit=EXPORT_ROWS),
             "daily": lambda: self.svc(ReportService).summary(frm, to)["daily"],
             "tax": lambda: self.svc(ReportService).tax_report(frm, to)["invoices"],
             "guest_register": lambda: self.svc(GuestService).registration_report(self.q("date") or today_iso(),
                                                                                  foreign_only=not self.flag("all")),
-            "audit": lambda: self.svc(AuditService).search(date_from=frm, date_to=to),
+            "audit": lambda: self.svc(AuditService).search(date_from=frm, date_to=to, limit=EXPORT_ROWS),
         }[name]()
         return to_csv(name, header, rows)

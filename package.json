@@ -1,0 +1,11 @@
+{
+  "name": "hotel-browser-tests",
+  "private": true,
+  "description": "Browser tests for the hotel portals. The application itself needs only Python.",
+  "scripts": {
+    "test:browser": "node --test tests/browser/*.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

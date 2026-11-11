@@ -1,5 +1,5 @@
 """Commercial & finance: companies (city ledger), pricing, cashier shifts, invoices, night audit."""
-from .base import BaseRepository, QueryBuilder
+from .base import BaseRepository, QueryBuilder, page_of
 
 
 class CompanyRepository(BaseRepository):
@@ -35,6 +35,18 @@ class SeasonRepository(BaseRepository):
         return self.fetch_all(
             "SELECT * FROM rate_seasons WHERE active=1 AND start_date <= ? AND end_date >= ?"
             " AND (room_type_id IS NULL OR room_type_id = ?) ORDER BY room_type_id IS NULL", (day, day, room_type_id))
+
+
+class RatePlanRepository(BaseRepository):
+    table = "rate_plans"
+    columns = ("name", "name_ar", "description", "meal_plan", "adjust_pct", "per_adult", "per_child", "refundable",
+               "online", "active", "position")
+    default_order = "t.position, t.id"
+    entity_label = "Rate plan"
+
+    def offered(self, online: bool) -> list:
+        sql = self._select() + " WHERE t.active = 1" + (" AND t.online = 1" if online else "")
+        return self.fetch_all(f"{sql} ORDER BY {self.default_order}")
 
 
 class PromoRepository(BaseRepository):
@@ -91,10 +103,12 @@ class InvoiceRepository(BaseRepository):
         seq = int(last.rsplit("-", 1)[1]) + 1 if last else 1
         return f"{prefix}{seq:06d}"
 
-    def search(self, date_from=None, date_to=None, limit=500) -> list:
+    def search(self, date_from=None, date_to=None, limit=500, page=None, per_page=None):
         qb = QueryBuilder(self.select_sql)
         qb.add_if(date_from, "date(t.issued_at) >= ?", date_from)
         qb.add_if(date_to, "date(t.issued_at) <= ?", date_to)
+        if page is not None:
+            return page_of(self, qb, "t.id DESC", page, per_page)
         return self.fetch_all(qb.sql("t.id DESC", limit), qb.args)
 
 
@@ -119,6 +133,11 @@ class AuditDayRepository(BaseRepository):
 
 class PasswordResetRepository(BaseRepository):
     table = "password_resets"
+    columns = ("user_id", "token_hash", "expires_at", "used_at")
+
+
+class EmailVerificationRepository(BaseRepository):
+    table = "email_verifications"
     columns = ("user_id", "token_hash", "expires_at", "used_at")
 
 

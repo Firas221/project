@@ -46,6 +46,12 @@ class SettingsSchema(Schema):
     free_cancellation_days = Number(min_value=0, max_value=60, integer=True)
     max_online_nights = Number(min_value=1, max_value=365, integer=True)
     require_2fa_for_admins = Bool()
+    require_email_verification = Bool()
+    auto_night_audit = Bool()
+    night_audit_time = Time()
+    auto_stayover_tasks = Bool()
+    stayover_time = Time()
+    arrival_reminder_days = Number(min_value=0, max_value=14, integer=True)
 
 
 class UserAdminService(Service):
@@ -186,9 +192,9 @@ class AuditService(Service):
     def outbox(self) -> list:
         self.require(Perm.AUDIT_VIEW)
         rows = self.repos.outbox.recent()
-        for r in rows:  # never expose reset links to the browser
-            if "reset" in r["subject"].lower():
-                r["body"] = "(hidden: contains a one-time password reset link)"
+        for r in rows:  # never expose one-time links to the browser
+            if "#reset=" in r["body"] or "#verify=" in r["body"]:
+                r["body"] = "(hidden: contains a one-time link)"
         return rows
 
 

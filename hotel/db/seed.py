@@ -38,6 +38,15 @@ DEFAULT_SETTINGS = {
     "max_online_nights": "30",
     # security
     "require_2fa_for_admins": "0",
+    "require_email_verification": "1",
+    # automatic night audit (off until the administrator turns it on)
+    "auto_night_audit": "0",
+    "night_audit_time": "03:00",
+    # daily stay-over cleaning tasks, created automatically (off until the administrator turns it on)
+    "auto_stayover_tasks": "0",
+    "stayover_time": "08:00",
+    # reminder e-mail this many days before arrival (0 = never)
+    "arrival_reminder_days": "2",
 }
 
 DEMO_PASSWORDS = {
@@ -159,7 +168,8 @@ class DemoData:
         # Amelia has an online account (client portal).
         self.r.users.insert(username="amelia.hart@example.com", email="amelia.hart@example.com",
                             full_name="Amelia Hart", role=Role.GUEST, guest_id=ids[0],
-                            password_hash=self.hasher.hash(DEMO_PASSWORDS["guest"]))
+                            password_hash=self.hasher.hash(DEMO_PASSWORDS["guest"]),
+                            email_verified_at=self.d(-30) + " 10:00:00")
         return ids
 
     def _inventory(self):
@@ -302,5 +312,9 @@ class DemoData:
                               adjust_pct=25, min_nights=2)
         self.r.seasons.insert(name="Summer low season", start_date=f"{year}-07-01", end_date=f"{year}-08-31",
                               adjust_pct=-15, min_nights=1)
+        self.r.rate_plans.insert(name="Bed & breakfast", name_ar="إقامة مع إفطار", meal_plan="breakfast",
+                                 description="Breakfast buffet for every guest", per_adult=350, per_child=175, position=1)
+        self.r.rate_plans.insert(name="Non-refundable saver", name_ar="سعر موفّر غير قابل للاسترداد", adjust_pct=-10,
+                                 description="10% off; cannot be changed or cancelled", refundable=0, position=2)
         self.r.promos.insert(code="WELCOME10", description="10% off direct online bookings", discount_pct=10,
                              valid_from=self.d(-30), valid_to=self.d(180), online_only=1)

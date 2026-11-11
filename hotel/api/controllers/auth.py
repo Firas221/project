@@ -53,6 +53,16 @@ class AuthController(Controller):
         self.svc(AuthService).reset_password(self.body.get("token"), self.body.get("new_password"))
         return {"ok": True}
 
+    @post("/auth/verify-email", audience="public", csrf=False, limit="login")
+    def verify_email(self):
+        self.svc(AuthService).verify_email(self.body.get("token"))
+        return {"ok": True}
+
+    @post("/auth/verify-email/resend", audience="user", limit="reset")
+    def resend_verification(self):
+        self.svc(AuthService).resend_verification()
+        return {"ok": True, "message": "We sent a new confirmation link to your e-mail address."}
+
     @post("/auth/2fa/setup", audience="user", allow_restricted=True)
     def setup_2fa(self):
         return self.svc(AuthService).start_2fa()

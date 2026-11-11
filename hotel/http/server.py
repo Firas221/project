@@ -64,7 +64,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 length = int(self.headers.get("Content-Length") or 0)
             except ValueError:
                 length = -1
-            if length < 0 or length > self.app.config.max_body_bytes:
+            if length < 0 or length > self.app.router.body_limit(method, url.path, self.app.config.max_body_bytes):
                 self._send(Response.json({"error": "Request body too large"}, 413), api=True)
                 return
             req = Request(method=method, path=url.path, query={k: v[0] for k, v in parse_qs(url.query).items()},
@@ -107,7 +107,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Security-Policy", CSP)
         if self.app.config.secure_cookies or self.app.config.tls_cert:
             self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        if api:
+        if api and not any(k.lower() == "cache-control" for k, _ in resp.headers):
             self.send_header("Cache-Control", "no-store")
         for k, v in resp.headers:
             self.send_header(k, v)

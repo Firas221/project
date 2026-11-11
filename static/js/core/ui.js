@@ -6,6 +6,8 @@ const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
 // ------------------------------------------------------------------ formatting
+let LOCALE;   // undefined = the browser's own language
+try { if (localStorage.getItem('lang') === 'ar') LOCALE = 'ar-EG-u-nu-latn'; } catch (e) { /* storage unavailable */ }
 export const settings = { currency: 'EGP' };
 export function configure(s) { Object.assign(settings, s || {}); }
 
@@ -20,12 +22,12 @@ export function fmtDate(iso, opts) {
   if (!iso) return '';
   const d = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso.replace(' ', 'T'));
   if (isNaN(d)) return esc(iso);
-  return d.toLocaleDateString(undefined, opts || { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(LOCALE, opts || { day: 'numeric', month: 'short', year: 'numeric' });
 }
 export function fmtDateTime(s) {
   if (!s) return '';
   const d = new Date(s.replace(' ', 'T'));
-  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 export function money(v) {
   const n = Number(v || 0);
@@ -104,6 +106,22 @@ export function table(head, rowsHtml, empty = 'Nothing here yet') {
     return `<th class="${cls}">${esc(t)}</th>`;
   }).join('')}</tr></thead><tbody>${rowsHtml || emptyRow(head.length, empty)}</tbody></table></div>`;
 }
+
+// ------------------------------------------------------------------ paging
+export const PAGE_SIZE = 50;
+/** Previous / next controls under a list. `p` is what the API returns for ?page=: {page, pages, total}. */
+export function pager(p) {
+  if (!p || !p.total) return '';
+  return `<div class="pager"><button type="button" class="btn sm" data-page="${p.page - 1}" ${p.page <= 1 ? 'disabled' : ''}>‹ Previous</button>
+    <span class="small muted">Page ${p.page} of ${p.pages} · ${p.total} in total</span>
+    <button type="button" class="btn sm" data-page="${p.page + 1}" ${p.page >= p.pages ? 'disabled' : ''}>Next ›</button></div>`;
+}
+export function bindPager(root, go) {
+  $$('.pager [data-page]', root).forEach((b) => b.addEventListener('click', () => go(+b.dataset.page)));
+}
+
+export const MEAL_PLANS = [['room_only', 'Room only'], ['breakfast', 'Breakfast included'], ['half_board', 'Half board'], ['full_board', 'Full board']];
+export const mealLabel = (m) => (MEAL_PLANS.find(([k]) => k === m) || ['', ''])[1];
 
 export function tile(lbl, value, sub = '') {
   return `<div class="card tile"><div class="tile-label">${esc(lbl)}</div><div class="tile-value">${esc(value)}</div><div class="tile-sub">${esc(sub)}</div></div>`;

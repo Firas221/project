@@ -97,6 +97,20 @@ class BaseRepository:
         self.execute(f"DELETE FROM {self.table} WHERE id = ?", (id_,))
 
 
+def page_of(repo: "BaseRepository", qb: "QueryBuilder", order_by: str, page, per_page=None) -> dict:
+    """One page of a filtered list, plus the totals a pager needs."""
+    try:
+        per_page = max(1, min(int(per_page or 50), 200))
+        page = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        page, per_page = 1, 50
+    total = repo.scalar(f"SELECT COUNT(*) FROM ({qb.sql()})", qb.args, 0)
+    pages = max(1, -(-total // per_page))
+    page = min(page, pages)
+    rows = repo.fetch_all(qb.sql(order_by) + f" LIMIT {per_page} OFFSET {(page - 1) * per_page}", qb.args)
+    return {"items": rows, "total": total, "page": page, "per_page": per_page, "pages": pages}
+
+
 class QueryBuilder:
     """Tiny helper to assemble WHERE clauses from optional filters."""
 

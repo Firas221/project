@@ -1,10 +1,10 @@
 """Users, roles, sessions, settings and the audit log."""
 from ..core.clock import now_str
-from .base import BaseRepository, QueryBuilder
+from .base import BaseRepository, QueryBuilder, page_of
 
 USER_PUBLIC_COLUMNS = (
     "t.id, t.username, t.email, t.full_name, t.role, t.active, t.guest_id, t.failed_attempts, t.locked_until,"
-    " t.must_change_password, t.password_changed_at, t.last_login_at, t.created_at, t.totp_enabled"
+    " t.must_change_password, t.password_changed_at, t.last_login_at, t.created_at, t.totp_enabled, t.email_verified_at"
 )
 
 
@@ -31,7 +31,7 @@ class UserRepository(BaseRepository):
     table = "users"
     columns = ("username", "email", "full_name", "role", "password_hash", "active", "guest_id", "failed_attempts",
                "locked_until", "must_change_password", "password_changed_at", "last_login_at", "totp_secret", "totp_enabled",
-               "totp_last_step")
+               "totp_last_step", "email_verified_at")
     select_sql = f"SELECT {USER_PUBLIC_COLUMNS} FROM users t"
     default_order = "t.role, t.username"
     entity_label = "User"
@@ -66,7 +66,7 @@ class SessionRepository(BaseRepository):
 
     def find_valid(self, token_hash: str, idle_cutoff: str):
         return self.fetch_one(
-            "SELECT s.*, u.username, u.full_name, u.role, u.active, u.guest_id, u.must_change_password"
+            "SELECT s.*, u.username, u.full_name, u.role, u.active, u.guest_id, u.must_change_password, u.email_verified_at"
             " FROM sessions s JOIN users u ON u.id = s.user_id"
             " WHERE s.token_hash = ? AND s.expires_at > ? AND s.last_seen_at > ?",
             (token_hash, now_str(), idle_cutoff),
@@ -105,13 +105,15 @@ class AuditRepository(BaseRepository):
     default_order = "t.id DESC"
 
     def search(self, q: str = None, user_id: int = None, action: str = None, date_from: str = None,
-               date_to: str = None, limit: int = 300) -> list:
+               date_to: str = None, limit: int = 300, page=None, per_page=None):
         qb = QueryBuilder("SELECT t.* FROM audit_log t")
         qb.add_if(q, "(t.details LIKE ? OR t.action LIKE ? OR t.username LIKE ?)", *[f"%{q}%"] * 3)
         qb.add_if(user_id, "t.user_id = ?", user_id)
         qb.add_if(action, "t.action LIKE ?", f"{action}%")
         qb.add_if(date_from, "date(t.created_at) >= ?", date_from)
         qb.add_if(date_to, "date(t.created_at) <= ?", date_to)
+        if page is not None:
+            return page_of(self, qb, "t.id DESC", page, per_page)
         return self.fetch_all(qb.sql("t.id DESC", limit), qb.args)
 
 

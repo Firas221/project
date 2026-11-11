@@ -1,8 +1,8 @@
 // Finance: cashier shifts, corporate accounts (city ledger), invoices, management reports, VAT report, night audit.
 import { GET, POST, PUT, qs } from '../core/api.js';
 import {
-  $, $$, addDays, badge, bindRowLinks, check, esc, field, fmtDate, fmtDateTime, guarded, label, modal, money, on,
-  qty, selectField, table, textField, tile, toast, todayISO,
+  $, $$, PAGE_SIZE, addDays, badge, bindPager, bindRowLinks, check, esc, field, fmtDate, fmtDateTime, guarded, label, modal, money, on,
+  pager, qty, selectField, table, textField, tile, toast, todayISO,
 } from '../core/ui.js';
 
 const METHODS = { card: 'Card', cash: 'Cash', bank_transfer: 'Bank transfer', other: 'Other / city ledger' };
@@ -83,13 +83,15 @@ export async function companyView(el, { args, ctx, alive }) {
 
 // ====================================================================== invoices
 export async function invoicesView(el, { params, alive }) {
-  const list = await GET('/invoices?' + qs({ from: params.from, to: params.to }));
+  const found = await GET('/invoices?' + qs({ from: params.from, to: params.to, page: params.page || 1, per_page: PAGE_SIZE }));
   if (!alive()) return;
+  const list = found.items;
   el.innerHTML = `<div class="page-head"><div class="grow"><h1>Tax invoices</h1><div class="sub">Issued automatically at check-out, numbered sequentially per year.</div></div></div>
     <div class="card">${table(['Number', 'Issued', 'Bill to', 'Stay', ['Subtotal', 'num'], ['Service', 'num'], ['VAT', 'num'], ['Total', 'num']], list.map((i) => `
       <tr class="clickable" data-href="#/invoices/${i.id}"><td><b>${esc(i.number)}</b></td><td class="small">${fmtDate(i.issued_at)}</td><td>${esc(i.bill_to)}${i.bill_to_tax_no ? `<div class="small muted">Tax no. ${esc(i.bill_to_tax_no)}</div>` : ''}</td>
-      <td>${esc(i.reservation_code)}</td><td class="num">${money(i.subtotal)}</td><td class="num">${money(i.service_charge)}</td><td class="num">${money(i.vat)}</td><td class="num"><b>${money(i.total)}</b></td></tr>`).join(''), 'No invoices yet')}</div>`;
+      <td>${esc(i.reservation_code)}</td><td class="num">${money(i.subtotal)}</td><td class="num">${money(i.service_charge)}</td><td class="num">${money(i.vat)}</td><td class="num"><b>${money(i.total)}</b></td></tr>`).join(''), 'No invoices yet')}${pager(found)}</div>`;
   bindRowLinks(el);
+  bindPager(el, (page) => { location.hash = '#/invoices?' + qs({ from: params.from, to: params.to, page }); });
 }
 
 // ====================================================================== reports

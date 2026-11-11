@@ -58,6 +58,19 @@ class Download:
         return r
 
 
+class Binary:
+    """Raw bytes returned by a controller (room photos). Cacheable by the browser."""
+
+    def __init__(self, content: bytes, content_type: str, max_age: int = 0):
+        self.content, self.content_type, self.max_age = content, content_type, max_age
+
+    def to_response(self) -> Response:
+        r = Response(200, self.content, self.content_type)
+        if self.max_age:
+            r.headers.append(("Cache-Control", f"public, max-age={int(self.max_age)}, immutable"))
+        return r
+
+
 class SessionCookie:
     """Signals the dispatcher to set (or clear) the session cookie."""
 

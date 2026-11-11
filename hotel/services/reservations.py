@@ -29,6 +29,7 @@ class ReservationSchema(StaySchema):
     rate = Money("Nightly rate", nullable=True, default=None)
     source = Str(choices=SOURCES, default="walk-in")
     promo_code = Str(max_len=30, upper=True)
+    rate_plan_id = Int("Rate plan", nullable=True, default=None)
     company_id = Int("Company", nullable=True, default=None)
     bill_to_company = Bool()
     special_requests = Str(max_len=1000, multiline=True)
@@ -44,6 +45,7 @@ class UpdateSchema(Schema):
     adults = Int(min_value=1, max_value=20)
     children = Int(min_value=0, max_value=20)
     rate = Money("Nightly rate")
+    rate_plan_id = Int("Rate plan", nullable=True)
     source = Str(choices=SOURCES)
     company_id = Int("Company", nullable=True)
     bill_to_company = Bool()
@@ -72,11 +74,11 @@ class ReservationService(Service):
     def search(self, **filters):
         self.require(Perm.RESERVATIONS_VIEW)
         billing = self.use(BillingService)
-        rows = self.repos.reservations.search(**filters)
-        for r in rows:
+        found = self.repos.reservations.search(**filters)
+        for r in (found["items"] if isinstance(found, dict) else found):
             f = billing.folio(r)
             r["total"], r["balance"] = f["total"], f["balance"]
-        return rows
+        return found
 
     def detail(self, reservation_id: int) -> dict:
         res = self.repos.reservations.require(reservation_id, "Reservation")
@@ -112,6 +114,17 @@ class ReservationService(Service):
             raise Conflict(f"Room {room['number']} is already booked for these dates ({conflict})")
         return room
 
+    @staticmethod
+    def _plan_fields(plan) -> dict:
+        """What a reservation remembers about its rate plan (a copy, so editing the plan later changes nothing)."""
+        if not plan:
+            return {"rate_plan_id": None, "rate_plan_name": "", "meal_plan": "room_only", "refundable": 1}
+        return {"rate_plan_id": plan["id"], "rate_plan_name": plan["name"], "meal_plan": plan["meal_plan"],
+                "refundable": int(plan["refundable"])}
+
+    def _plan_of(self, res: dict):
+        return self.repos.rate_plans.get(res["rate_plan_id"]) if res.get("rate_plan_id") else None
+
     def _resolve_guest(self, data: dict) -> int:
         if data.get("guest_id"):
             self.repos.guests.require(data["guest_id"], "Guest")
@@ -140,8 +153,10 @@ class ReservationService(Service):
         room = self._check_room(v["room_id"], v["check_in"], v["check_out"], v["adults"], v["children"])
         if v["company_id"]:
             self.repos.companies.require(v["company_id"], "Company")
-        quote = self.use(PricingService).quote(room["type_id"], v["check_in"], v["check_out"], v["promo_code"],
-                                               v["company_id"], online=online)
+        pricing = self.use(PricingService)
+        plan = pricing.plan(v["rate_plan_id"], online)
+        quote = pricing.quote(room["type_id"], v["check_in"], v["check_out"], v["promo_code"], v["company_id"],
+                              online=online, rate_plan=plan, adults=v["adults"], children=v["children"])
         if not quote["meets_min_stay"] and (online or v["rate"] is None):
             raise ValidationError(f"A minimum stay of {quote['min_nights']} nights applies to these dates")
         rate, rate_note = quote["average_rate"], quote["discount_label"]
@@ -157,7 +172,7 @@ class ReservationService(Service):
             adults=v["adults"], children=v["children"], rate=rate, source="online" if online else v["source"],
             promo_code=v["promo_code"], company_id=v["company_id"], bill_to_company=int(v["bill_to_company"] and bool(v["company_id"])),
             rate_note=rate_note, special_requests=v["special_requests"], notes="" if online else v["notes"],
-            created_by=self.actor_id)
+            created_by=self.actor_id, **self._plan_fields(plan))
         self.audit("reservation_create", "reservation", rid, f"{code} room {room['number']} {v['check_in']}→{v['check_out']}")
         if v["deposit"] and not online:
             self.use(BillingService).add_payment(rid, {"amount": v["deposit"], "method": v["deposit_method"],
@@ -215,11 +230,23 @@ class ReservationService(Service):
             fields["company_id"] = v["company_id"]
         if "bill_to_company" in v:
             fields["bill_to_company"] = int(v["bill_to_company"] and bool(fields.get("company_id", res["company_id"])))
+        pricing = self.use(PricingService)
+        plan, plan_changed = self._plan_of(res), False
+        if "rate_plan_id" in v and v["rate_plan_id"] != res["rate_plan_id"]:
+            plan, plan_changed = pricing.plan(v["rate_plan_id"]), True
+            fields.update(self._plan_fields(plan))
+        stay_changed = (ci, co) != (res["check_in"], res["check_out"])
+        pax_changed = plan is not None and (adults, children) != (res["adults"], res["children"])
         if "rate" in v:
             fields["rate"], fields["rate_note"] = v["rate"], "Manual rate"
-        elif (ci, co) != (res["check_in"], res["check_out"]) and res["rate_note"] != "Manual rate":
-            q = self.use(PricingService).quote(res["room_type_id"], ci, co, res["promo_code"], fields.get("company_id", res["company_id"]))
+        elif plan_changed or ((stay_changed or pax_changed) and res["rate_note"] != "Manual rate"):
+            q = pricing.quote(res["room_type_id"], ci, co, res["promo_code"], fields.get("company_id", res["company_id"]),
+                              rate_plan=plan, adults=adults, children=children)
             fields["rate"] = q["average_rate"]
+            if plan_changed:
+                fields["rate_note"] = q["discount_label"]
+        if ci != res["check_in"]:
+            fields["reminder_sent_at"] = None   # a new arrival date gets its own reminder
         self.repos.reservations.update(res["id"], **fields)
         self.audit("reservation_update", "reservation", res["id"], f"{res['code']} {ci}→{co}")
         return self.detail(res["id"])
@@ -235,14 +262,65 @@ class ReservationService(Service):
                                 exclude_id=res["id"])
         fields = {"room_id": room_id}
         if not keep_rate:
-            fields["rate"] = self.use(PricingService).quote(room["type_id"], res["check_in"], res["check_out"],
-                                                            res["promo_code"], res["company_id"])["average_rate"]
+            fields["rate"] = self.use(PricingService).quote(
+                room["type_id"], res["check_in"], res["check_out"], res["promo_code"], res["company_id"],
+                rate_plan=self._plan_of(res), adults=res["adults"], children=res["children"])["average_rate"]
         self.repos.reservations.update(res["id"], **fields)
         if res["status"] == "checked_in":
             self.repos.rooms.set_status(res["room_id"], "dirty")
             self._ensure_task(res["room_id"], "checkout_clean", "high", "Guest moved to another room")
         self.audit("reservation_move", "reservation", res["id"], f"{res['code']}: {res['room_number']} -> {room['number']}")
         return self.detail(res["id"])
+
+    def change_online(self, res: dict, check_in: str, check_out: str, adults: int, children: int, room_type_id: int,
+                      preview: bool = False) -> dict:
+        """A guest changes their own booking: new dates, guests or room type. Keeps the room when it is free,
+        otherwise takes another of that type, and re-prices at today's rates with the booking's own rate plan."""
+        self._check_dates(check_in, check_out)
+        rt = self.repos.room_types.require(room_type_id, "Room type")
+        if not rt["active"]:
+            raise ValidationError("This room type is not available", field="room_type_id")
+        room_id = None
+        if room_type_id == res["room_type_id"]:
+            current = self.repos.rooms.require(res["room_id"])
+            if (adults + children <= current["capacity"] and current["status"] != "maintenance"
+                    and not self.repos.reservations.conflict(res["room_id"], check_in, check_out, res["id"])):
+                room_id = res["room_id"]
+        if room_id is None:
+            free = self.repos.rooms.available(check_in, check_out, adults + children, room_type_id, res["id"])
+            if not free:
+                raise Conflict("No rooms of this type are available for these dates")
+            room_id = ([r for r in free if r["status"] in ("clean", "inspected")] or free)[0]["id"]
+        pricing, plan, promo = self.use(PricingService), self._plan_of(res), res["promo_code"]
+        args = dict(company_id=res["company_id"], online=True, rate_plan=plan, adults=adults, children=children)
+        try:
+            quote = pricing.quote(room_type_id, check_in, check_out, promo, **args)
+        except ValidationError as e:
+            if e.field != "promo_code":
+                raise
+            promo, quote = "", pricing.quote(room_type_id, check_in, check_out, "", **args)   # the promo has run out
+        if not quote["meets_min_stay"]:
+            raise ValidationError(f"A minimum stay of {quote['min_nights']} nights applies to these dates")
+        if preview:
+            from .billing import TaxCalculator
+            taxes = TaxCalculator(self.settings()).compute(quote["total"])
+            return {"check_in": check_in, "check_out": check_out, "nights": quote["nights"], "room_type": rt["name"],
+                    "adults": adults, "children": children, "rate": quote["average_rate"], "subtotal": quote["total"],
+                    "total": taxes["total"], "discount_label": quote["discount_label"],
+                    "promo_dropped": bool(res["promo_code"]) and not promo}
+        fields = {"check_in": check_in, "check_out": check_out, "adults": adults, "children": children,
+                  "room_id": room_id, "rate": quote["average_rate"], "rate_note": quote["discount_label"],
+                  "promo_code": promo}
+        if check_in != res["check_in"]:
+            fields["reminder_sent_at"] = None
+        self.repos.reservations.update(res["id"], **fields)
+        self.audit("reservation_change_online", "reservation", res["id"],
+                   f"{res['code']} {res['check_in']}→{res['check_out']} becomes {check_in}→{check_out}, {rt['name']}")
+        updated = self.repos.reservations.get(res["id"])
+        guest = self.repos.guests.get(res["guest_id"])
+        if guest["email"]:
+            self.use(NotificationService).booking_changed(updated, guest["email"])
+        return updated
 
     # ------------------------------------------------------------ lifecycle
     def check_in(self, reservation_id: int, force_dirty: bool = False) -> dict:

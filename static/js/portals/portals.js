@@ -38,7 +38,7 @@ const PORTALS = {
     keys: ['tasks', 'history', 'lost-found', 'supplies', 'maintenance'],
     screens: {
       // Housekeepers see their own rooms; supervisors without "work" permission get the full board.
-      tasks: { label: 'My rooms', icon: 'housekeeping', perm: null,
+      tasks: { label: 'My rooms', icon: 'housekeeping', perm: null, live: 30,
         view: (el, a) => (a.ctx.can('housekeeping.work') ? myTasksView : housekeepingBoardView)(el, a) },
       history: { label: 'Completed work', icon: 'list', perm: 'housekeeping.work', view: myHistoryView },
       maintenance: { label: 'Report an issue' },
@@ -55,6 +55,6 @@ if (def) {
   startPortal({
     key, title: def.title, allow: def.allow, topAction: def.topAction, nav,
     // the home screen is also reachable by its own name (e.g. #/dashboard)
-    routes: [{ pattern: new RegExp(`^${home}$`), nav: '', perm: screen(home).perm, view: screen(home).view }].concat(DETAIL_ROUTES),
+    routes: [{ pattern: new RegExp(`^${home}$`), nav: '', perm: screen(home).perm, view: screen(home).view, live: screen(home).live }].concat(DETAIL_ROUTES),
   });
 }

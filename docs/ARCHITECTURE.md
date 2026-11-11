@@ -37,7 +37,7 @@ The system is a layered, object-oriented application. Each layer has one job and
 | `hotel/core/permissions.py` | `Role`, `Perm`, permission catalog, default role permissions, `Principal` |
 | `hotel/core/security.py` | `PasswordHasher` (PBKDF2), `PasswordPolicy`, `Tokens`, `RateLimiter` |
 | `hotel/core/totp.py` | RFC 6238 one-time codes for two-factor authentication |
-| `hotel/db/schema.py`, `schema_v2.py` | Versioned migrations (append-only) |
+| `hotel/db/schema.py`, `schema_v2.py` … `schema_v4.py` | Versioned migrations (append-only) |
 | `hotel/db/database.py` | `Database.unit_of_work()` — `BEGIN IMMEDIATE` … `COMMIT`/`ROLLBACK` |
 | `hotel/db/seed.py` | Roles, Egyptian default settings, first admin, demo hotel |
 | `hotel/repositories/base.py` | `BaseRepository` (generic CRUD with column whitelists), `QueryBuilder` |
@@ -46,11 +46,11 @@ The system is a layered, object-oriented application. Each layer has one job and
 | `hotel/api/router.py` | `@get/@post/@put/@delete` decorators, `Controller`, `Router` |
 | `hotel/api/dispatcher.py` | The security pipeline described above |
 | `hotel/api/controllers/*.py` | Thin HTTP adapters that call services |
-| `static/js/core/` | `api.js` (fetch + CSRF), `ui.js` (escaping, modal, tables …), `shell.js` (portal frame, router, 2FA setup) |
+| `static/js/core/` | `api.js` (fetch + CSRF), `ui.js` (escaping, modal, tables …), `shell.js` (portal frame, router, 2FA setup), `i18n.js` + `ar.js` (Arabic for the staff portals) |
 | `static/js/views/` | Screens grouped by department |
 | `static/js/portals/` | `catalog.js` (every staff screen, defined once) and `portals.js` (which screens each portal shows) |
 | `static/js/site/` | Public website, sign-in/registration, guest account, English/Arabic strings |
-| `tests/` | Unit, security and end-to-end workflow tests against the real server |
+| `tests/` | Unit, security and end-to-end workflow tests against the real server; `tests/browser/` drives the portals in Chromium |
 
 ## Request lifecycle (example: front desk checks a guest out)
 
@@ -74,7 +74,22 @@ The system is a layered, object-oriented application. Each layer has one job and
 4. **API:** add a controller method with `@post("/path", perm=Perm.X)` and register the controller in `controllers/__init__.py`.
 5. **Permission:** if it is new, add it to `Perm`, `PERMISSION_CATALOG` and `DEFAULT_ROLE_PERMISSIONS`. It appears in the admin matrix automatically.
 6. **UI:** add a view in `static/js/views/`, list it in `portals/catalog.js` and add its key to the portals that should show it.
-7. **Tests:** add a test in `tests/`.
+7. **Arabic:** add any new on-screen phrase to `static/js/core/ar.js` (staff portals) or `static/js/site/i18n.js` (guest pages).
+8. **Tests:** add a test in `tests/`.
+
+## Lists and background jobs
+
+- **Paging.** List endpoints return the whole list by default. With `?page=2&per_page=50` they return `{items, total, page, per_page, pages}` instead (`page_of` in `repositories/base.py`). Screens that can grow without limit — reservations, guests, audit log, stock ledger, invoices — always ask for a page. CSV exports are never paged.
+- **Self-refreshing screens.** A screen marked `live: <seconds>` in `portals/catalog.js` reloads its data on that interval (`Router.keepFresh` in `core/shell.js`), except while a dialog is open, a field in the screen has focus, or the tab is hidden.
+- **Scheduled jobs.** `HotelApp._loop` runs every 15 seconds: e-mail delivery, backups, the automatic night audit, the daily stay-over tasks and arrival reminders. Each job reads its settings first and only opens a write transaction when there is work to do. They act as the user `system`.
+
+## Languages
+
+- **Guest pages** (website, sign-in, guest account) use keyed strings: `t('book')` looks the phrase up in `static/js/site/i18n.js`.
+- **Staff portals** are written in English only. In Arabic mode `core/i18n.js` replaces each interface phrase with its entry in `core/ar.js` as it appears on screen (including dialogs, placeholders and messages) and switches the page to right-to-left. Phrases containing names or numbers are matched by the patterns at the end of `ar.js`. Hotel data is never in the dictionary, so guest names, room numbers and notes are shown as entered.
+- The same overlay runs on the guest pages, so status labels and messages from the server appear in Arabic there too.
+- The server always answers in English; its messages are in `ar.js` like any other phrase (with patterns for the ones that contain a room number, a field name and so on). A phrase that is missing from `ar.js` simply stays in English.
+- E-mails are written on the server, in `hotel/services/notifications.py`, with one English and one Arabic text per message.
 
 ## Key design decisions
 

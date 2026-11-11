@@ -17,6 +17,7 @@ Access is permission-based, with five roles. Every API route declares an audienc
 - Housekeepers can only work on tasks assigned to them, or unassigned ones.
 - Cashiers only see their own shifts unless they have report access.
 - Room numbers are hidden from guests until check-in.
+- Guests can change or cancel only their own bookings, only before the free-cancellation limit, and never a non-refundable one. A change is re-priced by the server at current rates; the browser cannot supply a price.
 
 ## Authentication
 
@@ -26,6 +27,7 @@ Access is permission-based, with five roles. Every API route declares an audienc
 - **Two-factor authentication.** TOTP codes from an authenticator app, compatible with Google and Microsoft Authenticator. A used code cannot be replayed, and a sign-in attempt is discarded after 5 wrong codes. Administrators can be required to use 2FA (Settings → Security).
 - **New accounts.** New and reset accounts get a one-time password and must change it before using anything else.
 - **Password reset.** Single-use links valid for 30 minutes. Only a SHA-256 hash of the token is stored, and all sessions are revoked after a reset.
+- **E-mail confirmation (guests).** When SMTP is configured, a new guest account can do nothing in the guest portal until its single-use link (48 hours, stored as a hash) is opened. A desk-made guest profile with the same e-mail address, and its bookings, is attached to the account only after confirmation, so registering with someone else's address reveals nothing.
 
 ## Sessions
 
@@ -45,11 +47,14 @@ Access is permission-based, with five roles. Every API route declares an audienc
   - Errors never leak stack traces.
   - CSV exports neutralise spreadsheet formula injection.
   - Sign-in redirects only allow same-site paths.
+  - Room photos must be JPEG, PNG or WebP. The type is read from the file's own bytes, not from what the browser claims; SVG and anything else is refused. Photos are limited to 1.5 MB and 8 per room type, and are served with `nosniff`.
+  - Only the photo-upload route accepts bodies above 256 KB (about 2 MB), and only from users who may manage rooms.
+- **Backup restore.** Only an administrator can restore, and must enter their password again. The file must be one of the listed backups, pass SQLite's integrity check and be a hotel database of the same or an older version. The current data is backed up first.
 
 ## Audit and privacy
 
-- **Audit log.** Every sign-in (successful and failed), lockout, permission change and business action is recorded with the user, time and IP. It can be filtered and exported in Admin → Audit log.
-- **Password-reset e-mails.** Links in these e-mails are hidden from the outbox view.
+- **Audit log.** Every sign-in (successful and failed), lockout, permission change and business action is recorded with the user, time and IP. Scheduled jobs (the automatic night audit, a restore) appear as the user `system`. It can be filtered and exported in Admin → Audit log.
+- **One-time links.** Password-reset and e-mail-confirmation links are hidden from the outbox view.
 - **Egyptian data protection law (Law 151/2020).** Consent is captured at registration. Guests can export their data and delete their account; staff can export or erase a guest's data on request. Financial records are kept anonymously, as tax law requires.
 
 ## Deployment checklist

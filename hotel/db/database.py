@@ -43,6 +43,10 @@ class Database:
         finally:
             conn.close()
 
+    @staticmethod
+    def latest_version() -> int:
+        return max(v for v, _, _ in MIGRATIONS)
+
     # ------------------------------------------------------------ migrations
     def migrate(self) -> int:
         """Applies pending migrations. Returns the number applied."""

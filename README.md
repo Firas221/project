@@ -6,7 +6,9 @@ A complete property-management system for a hotel in Egypt. There is a separate 
 - front-desk staff
 - chefs
 - housekeepers
-- guests (a public booking website in English and Arabic, plus a guest account)
+- guests (a public booking website, plus a guest account)
+
+Every portal works in **English and Arabic** (right-to-left); each person switches with one click and the choice is remembered.
 
 It needs nothing except **Python 3.9+**: no packages to install and no database server. The data lives in one SQLite file.
 
@@ -43,13 +45,15 @@ It prints a one-time admin password; you must change it at first sign-in. Then r
 - The **roles & permissions matrix**, which decides what staff, chefs and housekeepers may do.
 - Hotel, tax and security settings.
 - Audit log and e-mail outbox.
-- Night audit, backups, rates, seasons and promo codes.
+- Night audit (by hand, or automatically at a set time), backups and one-click restore.
+- Room types with photos, rates, seasons, promo codes and **rate plans** (breakfast, half or full board; non-refundable rates).
 - Purchasing, refunds and voids.
 
 **Front desk**
 - Dashboard: arrivals, departures, occupancy and payments.
 - Room calendar.
-- Booking wizard: live availability and pricing, corporate rates, promo codes and deposits.
+- Booking wizard: live availability and pricing, rate plans, corporate rates, promo codes and deposits.
+- Long lists (reservations, guests, invoices) are paged, and the dashboard, housekeeping board and guest requests refresh by themselves.
 - Group bookings.
 - Check-in, with the passport/ID details Egypt requires for guest registration.
 - Check-out, which issues a numbered tax invoice and sends the room to housekeeping.
@@ -63,18 +67,20 @@ It prints a one-time admin password; you must change it at first sign-in. Then r
 - Kitchen stock, supply requests to the store, and reporting issues.
 
 **Housekeeper**
-- "My rooms" task cards, plus unassigned rooms they can take.
+- "My rooms" task cards, plus unassigned rooms they can take. Stay-over cleaning tasks can be created automatically every morning.
 - Start → mark clean.
 - Report a maintenance issue, log found items, request supplies, see completed work.
 
 **Guest**
-- On the website: search dates, see prices including 12% service and 14% VAT, use promo codes, and book online. The room is assigned automatically.
+- On the website: see room photos, search dates, choose a rate (room only, with meals, or a cheaper non-refundable rate), see prices including 12% service and 14% VAT, use promo codes, and book online. The room is assigned automatically.
+- New accounts confirm their e-mail address with a link before they can book (once outgoing e-mail is set up).
 - In their account:
-  - See and cancel bookings, within the free-cancellation window.
+  - See, **change** (dates, guests or room type, with the new price shown first) and cancel bookings, within the free-cancellation window.
   - View their bill and download the tax invoice.
   - During the stay, order room service and send requests (towels, cleaning, maintenance, wake-up).
   - Review the stay afterwards.
   - Edit their profile, download their data, or delete their account.
+- E-mails (confirmation, changes, a reminder before arrival, invoice) arrive in the guest's language, English or Arabic.
 
 ## Built for Egypt
 
@@ -92,10 +98,19 @@ It prints a one-time admin password; you must change it at first sign-in. Then r
 cd tests && python3 -m unittest -v
 ```
 
-There are 55 tests. They start the real server on a temporary database and cover:
-- security: sign-in, lockout, sessions, CSRF, cross-site requests, the full role matrix, guests' data isolation, 2FA, password reset, privacy erasure, path traversal, SQL injection, CSV injection;
-- every workflow across departments;
+There are 87 Python tests. They start the real server on a temporary database and cover:
+- security: sign-in, lockout, sessions, CSRF, cross-site requests, the full role matrix, guests' data isolation, 2FA, password reset, e-mail confirmation, privacy erasure, path traversal, SQL injection, CSV injection, photo-upload checks;
+- every workflow across departments, plus backup restore, the scheduled jobs (night audit, stay-over tasks, arrival reminders), rate plans, paging and e-mail language;
 - unit tests for validation, the tax maths and the TOTP test vectors.
+
+There are also 19 browser tests that drive the real portals in headless Chromium: every screen of every staff portal, the Arabic right-to-left mode (including messages from the server), photo upload, the delete buttons, backup restore, online booking with rate plans, guests changing a booking, paged lists, self-refreshing screens and e-mail confirmation. They are the only part of the project that needs Node.js:
+
+```bash
+npm install && npx playwright install chromium    # once
+npm run test:browser
+```
+
+Both suites run on every push (`.github/workflows/tests.yml`).
 
 ## Documentation
 

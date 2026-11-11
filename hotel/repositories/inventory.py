@@ -1,5 +1,5 @@
 """Inventory: suppliers, items, stock ledger, purchase orders, supply requests."""
-from .base import BaseRepository, QueryBuilder
+from .base import BaseRepository, QueryBuilder, page_of
 
 
 class SupplierRepository(BaseRepository):
@@ -51,12 +51,14 @@ class MovementRepository(BaseRepository):
                   " LEFT JOIN reservations r ON r.id = t.reservation_id")
     default_order = "t.id DESC"
 
-    def search(self, item_id=None, kind=None, date_from=None, date_to=None, limit=500) -> list:
+    def search(self, item_id=None, kind=None, date_from=None, date_to=None, limit=500, page=None, per_page=None):
         qb = QueryBuilder(self.select_sql)
         qb.add_if(item_id, "t.item_id = ?", item_id)
         qb.add_if(kind, "t.kind = ?", kind)
         qb.add_if(date_from, "date(t.created_at) >= ?", date_from)
         qb.add_if(date_to, "date(t.created_at) <= ?", date_to)
+        if page is not None:
+            return page_of(self, qb, self.default_order, page, per_page)
         return self.fetch_all(qb.sql(self.default_order, limit), qb.args)
 
     def consumption(self, kinds, date_from, date_to, limit=10) -> list:

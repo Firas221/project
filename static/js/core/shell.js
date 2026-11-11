@@ -1,6 +1,7 @@
 // Portal shell: session check, role gate, forced security steps, sidebar navigation and hash routing.
 import { GET, POST, loadSession, logout } from './api.js';
 import { $, $$, configure, esc, field, fmtDate, formValues, icon, todayISO, toast } from './ui.js';
+import { isArabic, startTranslator, toggleLang } from './i18n.js';
 
 const PORTALS = [
   ['/admin', 'Admin', (u) => u.role === 'admin'],
@@ -20,6 +21,7 @@ export const can = (user, perm) => !perm || user.role === 'admin' || user.permis
  *   routes  – extra [{pattern: RegExp, nav, view}] for detail pages
  */
 export async function startPortal(cfg) {
+  await startTranslator();
   let me;
   try {
     me = await loadSession();
@@ -57,7 +59,7 @@ function renderLayout(cfg, ctx) {
     <div class="app portal-${esc(cfg.key)}">
       <aside class="sidebar" id="sidebar">
         <div class="brand"><div class="brand-logo">${esc((settings.hotel_name || 'H')[0])}</div>
-          <div><div class="brand-name">${esc(settings.hotel_name || 'Hotel')}</div><div class="brand-sub">${esc(cfg.title)}</div></div></div>
+          <div><div class="brand-name">${esc((isArabic() && settings.hotel_name_ar) || settings.hotel_name || 'Hotel')}</div><div class="brand-sub">${esc(cfg.title)}</div></div></div>
         <nav class="nav" aria-label="Main">
           ${nav.map((n) => (n.sep ? '<div class="nav-sep"></div>'
             : `<a href="#/${n.path}" data-nav="${n.path}">${icon(n.icon)}<span>${esc(n.label)}</span></a>`)).join('')}
@@ -68,6 +70,7 @@ function renderLayout(cfg, ctx) {
           <div class="who">${esc(user.full_name)}</div>
           <div>${esc(user.role_label)}</div>
           <div class="foot-links"><a href="#/security">My security</a> · <a href="#" id="logout">Sign out</a></div>
+          <div class="foot-links"><a href="#" id="lang-toggle" data-no-translate lang="${isArabic() ? 'en' : 'ar'}">${isArabic() ? 'English' : 'العربية'}</a></div>
         </div>
       </aside>
       <div class="main">
@@ -81,6 +84,7 @@ function renderLayout(cfg, ctx) {
       </div>
     </div>`;
   $('#logout').addEventListener('click', async (e) => { e.preventDefault(); await logout(); location.href = '/login'; });
+  $('#lang-toggle').addEventListener('click', (e) => { e.preventDefault(); toggleLang(); });
   $('#menu-btn').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
   if (cfg.topAction && ctx.can(cfg.topAction.perm)) $('#top-action').addEventListener('click', () => cfg.topAction.run(ctx));
   else if (cfg.topAction) $('#top-action').remove();
@@ -92,29 +96,45 @@ class Router {
     this.ctx = ctx;
     this.token = 0;
     this.routes = [
-      ...cfg.nav.filter((n) => !n.sep).map((n) => ({ pattern: new RegExp(`^${n.path}$`), nav: n.path, view: n.view, perm: n.perm, label: n.label })),
+      ...cfg.nav.filter((n) => !n.sep).map((n) => ({ pattern: new RegExp(`^${n.path}$`), nav: n.path, view: n.view, perm: n.perm, label: n.label, live: n.live })),
       ...(cfg.routes || []),
       { pattern: /^security$/, nav: 'security', view: securityView, label: 'My security' },
     ];
   }
 
-  async render() {
+  /**
+   * Screens marked `live: <seconds>` (dashboard, housekeeping, requests …) reload their data by themselves,
+   * so new arrivals, tasks and requests appear without anyone pressing refresh. A reload is skipped while a
+   * dialog is open, while someone is typing or choosing in the screen, and while the tab is in the background.
+   */
+  keepFresh(route) {
+    clearInterval(this.timer);
+    if (!route.live) return;
+    this.timer = setInterval(() => {
+      const busy = document.querySelector('.modal-back') || document.hidden
+        || (document.activeElement && document.activeElement.closest('#view') && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName));
+      if (!busy) this.render(true);
+    }, route.live * 1000);
+  }
+
+  async render(quiet = false) {
     const hash = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
     const [path, query] = hash.split('?');
     const params = Object.fromEntries(new URLSearchParams(query || ''));
     const view = $('#view');
     $('#sidebar').classList.remove('open');
     const route = this.routes.find((r) => r.pattern.test(path));
-    if (!route || !this.ctx.can(route.perm)) { view.innerHTML = '<div class="empty">Page not found</div>'; return; }
+    if (!route || !this.ctx.can(route.perm)) { clearInterval(this.timer); view.innerHTML = '<div class="empty">Page not found</div>'; return; }
+    if (!quiet) this.keepFresh(route);
     $$('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === route.nav));
     const navItem = this.routes.find((r) => r.nav === route.nav && r.label);
     $('#top-title').textContent = navItem ? navItem.label : '';
     const token = ++this.token;
-    view.innerHTML = '<div class="empty">Loading…</div>';
+    if (!quiet) view.innerHTML = '<div class="empty">Loading…</div>';
     try {
       await route.view(view, { args: path.match(route.pattern).slice(1), params, ctx: this.ctx, alive: () => token === this.token });
     } catch (e) {
-      if (token === this.token) view.innerHTML = `<div class="card card-body"><div class="form-error">${esc(e.message)}</div></div>`;
+      if (token === this.token && !quiet) view.innerHTML = `<div class="card card-body"><div class="form-error">${esc(e.message)}</div></div>`;
     }
   }
 }

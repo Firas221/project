@@ -1,8 +1,9 @@
 // Front desk: dashboard, room calendar, reservations, booking wizard, folio, invoices, group bookings.
 import { DEL, GET, POST, PUT, qs } from '../core/api.js';
 import {
-  $, $$, addDays, badge, bindRowLinks, check, confirmBox, emptyRow, esc, field, fmtDate, fmtDateTime, guarded, label,
-  modal, money, nightsBetween, on, options, qty, selectField, settings, table, textField, tile, toast, todayISO, vip,
+  $, $$, PAGE_SIZE, addDays, badge, bindPager, bindRowLinks, check, confirmBox, emptyRow, esc, field, fmtDate, fmtDateTime,
+  guarded, label, mealLabel, modal, money, nightsBetween, on, options, pager, qty, selectField, settings, table, textField, tile,
+  toast, todayISO, vip,
 } from '../core/ui.js';
 
 const METHODS = { card: 'Card', cash: 'Cash', bank_transfer: 'Bank transfer', other: 'Other' };
@@ -110,22 +111,26 @@ export async function reservationsView(el, { params, ctx, alive }) {
       <label class="check small">From <input type="date" id="f-from"></label><label class="check small">To <input type="date" id="f-to"></label>
     </div>
     <div class="card" id="list"></div>`;
-  const load = async () => {
+  let page = 1;
+  const load = async (to = 1) => {
+    page = to;
     const f = { q: $('#f-q').value.trim(), status: $('#f-status').value, from: $('#f-from').value, to: $('#f-to').value };
     $('#exp').href = '/api/export/reservations?' + qs(f);
-    const list = await GET('/reservations?' + qs(f));
+    const found = await GET('/reservations?' + qs({ ...f, page, per_page: PAGE_SIZE }));
     if (!alive()) return;
+    const list = found.items;
     $('#list').innerHTML = table(['Code', 'Guest', 'Room', 'Check-in', 'Check-out', 'Nights', 'Status', ['Total', 'num'], ['Balance', 'num']],
       list.map((r) => `<tr class="clickable" data-href="#/reservations/${r.id}"><td><b>${esc(r.code)}</b>${r.group_code ? `<div class="small muted">${esc(r.group_name)}</div>` : ''}</td>
         <td>${esc(r.guest_name)}${vip(r.guest_vip)}<div class="small muted">${esc(r.company_name || r.source)}</div></td>
         <td>${esc(r.room_number)}<div class="small muted">${esc(r.room_type)}</div></td><td class="nowrap">${fmtDate(r.check_in)}</td>
         <td class="nowrap">${fmtDate(r.check_out)}</td><td>${r.nights}</td><td>${badge(r.status)}</td><td class="num">${money(r.total)}</td>
-        <td class="num ${r.balance > 0.004 ? 'text-bad' : ''}">${money(r.balance)}</td></tr>`).join(''), 'No reservations match these filters');
+        <td class="num ${r.balance > 0.004 ? 'text-bad' : ''}">${money(r.balance)}</td></tr>`).join(''), 'No reservations match these filters') + pager(found);
     bindRowLinks(el);
+    bindPager(el, load);
   };
   let timer;
-  $('#f-q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 250); });
-  ['#f-status', '#f-from', '#f-to'].forEach((s) => $(s).addEventListener('change', load));
+  $('#f-q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => load(), 250); });
+  ['#f-status', '#f-from', '#f-to'].forEach((s) => $(s).addEventListener('change', () => load()));
   if ($('#new')) $('#new').addEventListener('click', () => newReservation());
   if ($('#grp')) $('#grp').addEventListener('click', () => groupBooking());
   await load();
@@ -133,7 +138,7 @@ export async function reservationsView(el, { params, ctx, alive }) {
 
 // ====================================================================== booking wizard
 export async function newReservation(prefill = {}) {
-  const [types, companies] = await Promise.all([GET('/room-types'), GET('/companies').catch(() => [])]);
+  const [types, companies, plans] = await Promise.all([GET('/room-types'), GET('/companies').catch(() => []), GET('/rate-plans').catch(() => [])]);
   const ci = prefill.check_in || todayISO();
   let selected = null;
   let rooms = [];
@@ -157,6 +162,7 @@ export async function newReservation(prefill = {}) {
     <div><div class="small muted" id="avail-info"></div><div class="room-options" id="room-options"></div></div>
     <div class="form-section">Rate, company &amp; deposit</div>
     <div class="form-grid g4">
+      ${selectField('Rate plan', 'rate_plan_id', [['', 'Room only, flexible']].concat(plans.map(planOption)), '')}
       ${field('Promo code', 'promo_code', '', 'style="text-transform:uppercase"')}
       ${selectField('Company (corporate rate)', 'company_id', [['', '— None —']].concat(companies.map((c) => [c.id, `${c.name}${c.discount_pct ? ` (-${c.discount_pct}%)` : ''}`])), '')}
       ${field('Nightly rate *', 'rate', '', 'type="number" step="0.01" min="0"')}${selectField('Source', 'source', SOURCES.map((s) => [s, label(s)]), 'walk-in')}
@@ -174,7 +180,8 @@ export async function newReservation(prefill = {}) {
         if (!selected || f.check_out.value <= f.check_in.value) { renderEst(); return; }
         try {
           quote = await GET('/quote?' + qs({ room_type_id: selected.type_id, check_in: f.check_in.value, check_out: f.check_out.value,
-            promo_code: f.promo_code.value.trim(), company_id: f.company_id.value }));
+            promo_code: f.promo_code.value.trim(), company_id: f.company_id.value, rate_plan_id: f.rate_plan_id.value,
+            adults: f.adults.value, children: f.children.value }));
           f.rate.value = quote.average_rate.toFixed(2);
         } catch (e) { $('#est', m).innerHTML = `<span class="text-bad">${esc(e.message)}</span>`; return; }
         renderEst();
@@ -216,7 +223,7 @@ export async function newReservation(prefill = {}) {
         if (n === 'check_in' && f.check_out.value <= f.check_in.value) f.check_out.value = addDays(f.check_in.value, 1);
         searchAvail();
       }));
-      ['promo_code', 'company_id'].forEach((n) => f[n].addEventListener('change', updateQuote));
+      ['promo_code', 'company_id', 'rate_plan_id'].forEach((n) => f[n].addEventListener('change', updateQuote));
       f.rate.addEventListener('input', renderEst);
       $$('input[name=guest_mode]', m).forEach((r) => r.addEventListener('change', () => {
         const ex = f.guest_mode.value === 'existing';
@@ -230,6 +237,7 @@ export async function newReservation(prefill = {}) {
       if (!v.room_id) throw new Error('Please select a room');
       const payload = { room_id: +v.room_id, check_in: v.check_in, check_out: v.check_out, adults: v.adults, children: v.children,
         rate: v.rate, source: v.source, promo_code: v.promo_code, company_id: v.company_id || null, bill_to_company: v.bill_to_company,
+        rate_plan_id: v.rate_plan_id || null,
         special_requests: v.special_requests, notes: v.notes, deposit: v.deposit || 0, deposit_method: v.deposit_method };
       if (v.guest_mode === 'existing') {
         if (!v.guest_id) throw new Error('Search and select a guest');
@@ -242,6 +250,20 @@ export async function newReservation(prefill = {}) {
     },
   });
   if (res && res.id) { toast(`Reservation ${res.code} created`, 'success'); location.hash = '#/reservations/' + res.id; }
+}
+
+/** One line describing a rate plan in a drop-down: "Bed & breakfast — Breakfast included, +350.00 EGP per adult". */
+function planOption(p) {
+  const bits = [mealLabel(p.meal_plan)];
+  if (p.adjust_pct) bits.push(`${p.adjust_pct > 0 ? '+' : ''}${p.adjust_pct}%`);
+  if (p.per_adult) bits.push(`+${money(p.per_adult)} per adult`);
+  if (!p.refundable) bits.push('non-refundable');
+  return [p.id, `${p.name} — ${bits.join(', ')}`];
+}
+
+/** "Bed & breakfast · Breakfast included · non-refundable" for a reservation. */
+export function planSummary(r) {
+  return [r.rate_plan_name, mealLabel(r.meal_plan), r.refundable ? '' : 'non-refundable'].filter(Boolean).join(' · ');
 }
 
 export function guestPicker(input, box, onPick) {
@@ -311,7 +333,8 @@ export async function reservationView(el, { args, ctx, alive }) {
   const can = ctx.can;
   el.innerHTML = `
     <div class="page-head"><div class="grow"><a class="small" href="#/reservations">‹ Reservations</a><h1>${esc(r.code)} ${badge(r.status)}</h1>
-      <div class="sub">${esc(r.guest_name)} · Room ${esc(r.room_number)} · ${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}${r.group_code ? ` · Group ${esc(r.group_name)}` : ''}</div></div>
+      <div class="sub">${esc(r.guest_name)} · Room ${esc(r.room_number)} · ${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}${r.group_code ? ` · Group ${esc(r.group_name)}` : ''}</div>
+      <div class="sub" id="plan-line">${esc(planSummary(r))}</div></div>
       <div class="btn-row">
         ${r.status === 'booked' && can('frontdesk.checkin') ? '<button class="btn good" id="a-in">Check in</button>' : ''}
         ${r.status === 'checked_in' && can('frontdesk.checkin') ? '<button class="btn good" id="a-out">Check out</button>' : ''}
@@ -434,17 +457,26 @@ async function checkOut(r, ctx) {
 
 async function editReservation(r, ctx) {
   const inHouse = r.status === 'checked_in';
-  const companies = await GET('/companies').catch(() => []);
+  const [companies, plans] = await Promise.all([GET('/companies').catch(() => []), GET('/rate-plans').catch(() => [])]);
+  const planChoices = [['', 'Room only, flexible']].concat(plans.map(planOption));
+  if (r.rate_plan_name && !plans.find((p) => p.id === r.rate_plan_id)) planChoices.push([r.rate_plan_id || 'keep', `${r.rate_plan_name} (no longer offered)`]);
   const ok = await modal({
     title: 'Edit ' + r.code,
     body: `<div class="form-grid">${field('Check-in', 'check_in', r.check_in, `type="date" ${inHouse ? 'disabled' : ''}`)}${field('Check-out', 'check_out', r.check_out, 'type="date"')}
       ${field('Adults', 'adults', r.adults, 'type="number" min="1"')}${field('Children', 'children', r.children, 'type="number" min="0"')}
       ${field('Nightly rate (leave to reprice automatically)', 'rate', '', `type="number" step="0.01" min="0" placeholder="${r.rate.toFixed(2)}"`, 'full')}
+      ${selectField('Rate plan', 'rate_plan_id', planChoices, r.rate_plan_id || (r.rate_plan_name ? 'keep' : ''), 'full')}
       ${selectField('Source', 'source', SOURCES.map((s) => [s, label(s)]), r.source)}
       ${selectField('Company', 'company_id', [['', '— None —']].concat(companies.map((c) => [c.id, c.name])), r.company_id || '')}
       ${check('Bill to company', 'bill_to_company', r.bill_to_company, 'full')}
       ${textField('Special requests', 'special_requests', r.special_requests)}${textField('Notes', 'notes', r.notes)}</div>`,
-    onSubmit: (v) => { if (v.rate === '') delete v.rate; v.company_id = v.company_id || null; return PUT('/reservations/' + r.id, v); },
+    onSubmit: (v) => {
+      if (v.rate === '') delete v.rate;
+      v.company_id = v.company_id || null;
+      if (v.rate_plan_id === 'keep' || String(v.rate_plan_id) === String(r.rate_plan_id || '')) delete v.rate_plan_id;
+      else v.rate_plan_id = v.rate_plan_id || null;
+      return PUT('/reservations/' + r.id, v);
+    },
   });
   if (ok) { toast('Reservation updated', 'success'); ctx.refresh(); }
 }

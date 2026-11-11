@@ -19,7 +19,8 @@ class ReservationController(Controller):
 
     @get("/reservations", perm=Perm.RESERVATIONS_VIEW)
     def list(self):
-        return self.rs().search(status=self.q("status"), q=self.q("q"), date_from=self.q("from"), date_to=self.q("to"))
+        return self.rs().search(status=self.q("status"), q=self.q("q"), date_from=self.q("from"), date_to=self.q("to"),
+                                **self.paging())
 
     @post("/reservations", perm=Perm.RESERVATIONS_MANAGE)
     def create(self):
@@ -95,9 +96,13 @@ class ReservationController(Controller):
 
     @get("/quote", perm=Perm.RESERVATIONS_VIEW)
     def quote(self):
-        return self.svc(PricingService).quote(Int("Room type", required=True).clean(self.q("room_type_id")),
-                                              self.q("check_in"), self.q("check_out"), self.q("promo_code", ""),
-                                              Int().clean(self.q("company_id")) if self.q("company_id") else None)
+        pricing = self.svc(PricingService)
+        number = lambda name, default: Int(min_value=0, max_value=20).clean(self.q(name)) if self.q(name) else default  # noqa: E731
+        return pricing.quote(Int("Room type", required=True).clean(self.q("room_type_id")),
+                             self.q("check_in"), self.q("check_out"), self.q("promo_code", ""),
+                             Int().clean(self.q("company_id")) if self.q("company_id") else None,
+                             rate_plan=pricing.plan(number("rate_plan_id", None)),
+                             adults=number("adults", 1), children=number("children", 0))
 
     @get("/calendar", perm=Perm.RESERVATIONS_VIEW)
     def calendar(self):
@@ -108,7 +113,7 @@ class ReservationController(Controller):
 class InvoiceController(Controller):
     @get("/invoices", perm=Perm.BILLING_VIEW)
     def list(self):
-        return self.svc(InvoiceService).search(self.q("from"), self.q("to"))
+        return self.svc(InvoiceService).search(self.q("from"), self.q("to"), **self.paging())
 
     @get("/invoices/{invoice_id}", perm=Perm.BILLING_VIEW)
     def detail(self, invoice_id):
@@ -118,7 +123,7 @@ class InvoiceController(Controller):
 class GuestController(Controller):
     @get("/guests", perm=Perm.GUESTS_VIEW)
     def list(self):
-        return self.svc(GuestService).search(self.q("q"))
+        return self.svc(GuestService).search(self.q("q"), **self.paging())
 
     @post("/guests", perm=Perm.GUESTS_MANAGE)
     def create(self):
@@ -150,6 +155,10 @@ class GuestController(Controller):
                                                           foreign_only=not self.flag("all"))
 
 
+# A 1.5 MB image is about 2 MB once base64-encoded inside JSON.
+PHOTO_UPLOAD_LIMIT = 2_200_000
+
+
 class RoomController(Controller):
     @get("/room-types", audience="user")
     def types(self):
@@ -166,6 +175,18 @@ class RoomController(Controller):
     @delete("/room-types/{type_id}", perm=Perm.ROOMS_MANAGE)
     def delete_type(self, type_id):
         self.svc(RoomService).delete_type(type_id)
+
+    @post("/room-types/{type_id}/photos", perm=Perm.ROOMS_MANAGE, max_body=PHOTO_UPLOAD_LIMIT)
+    def add_photo(self, type_id):
+        return {**self.svc(RoomService).add_photo(type_id, self.body.get("data")), "_created": True}
+
+    @delete("/room-photos/{photo_id}", perm=Perm.ROOMS_MANAGE)
+    def delete_photo(self, photo_id):
+        self.svc(RoomService).delete_photo(photo_id)
+
+    @post("/room-photos/{photo_id}/cover", perm=Perm.ROOMS_MANAGE)
+    def cover_photo(self, photo_id):
+        self.svc(RoomService).set_cover_photo(photo_id)
 
     @get("/rooms")
     def rooms(self):
@@ -215,6 +236,26 @@ class RoomController(Controller):
     @put("/promos/{promo_id}", perm=Perm.ROOMS_MANAGE)
     def update_promo(self, promo_id):
         return self.svc(PricingService).save_promo(self.body, promo_id)
+
+    @delete("/promos/{promo_id}", perm=Perm.ROOMS_MANAGE)
+    def delete_promo(self, promo_id):
+        self.svc(PricingService).delete_promo(promo_id)
+
+    @get("/rate-plans", perm=Perm.RESERVATIONS_VIEW)
+    def rate_plans(self):
+        return self.svc(PricingService).rate_plans(include_inactive=self.flag("all"))
+
+    @post("/rate-plans", perm=Perm.ROOMS_MANAGE)
+    def create_rate_plan(self):
+        return self.svc(PricingService).save_rate_plan(self.body)
+
+    @put("/rate-plans/{plan_id}", perm=Perm.ROOMS_MANAGE)
+    def update_rate_plan(self, plan_id):
+        return self.svc(PricingService).save_rate_plan(self.body, plan_id)
+
+    @delete("/rate-plans/{plan_id}", perm=Perm.ROOMS_MANAGE)
+    def delete_rate_plan(self, plan_id):
+        self.svc(PricingService).delete_rate_plan(plan_id)
 
 
 class CashierController(Controller):

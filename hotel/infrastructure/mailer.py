@@ -1,5 +1,7 @@
 """Delivers queued e-mails from the outbox via SMTP (or logs them when SMTP isn't configured)."""
+import html
 import logging
+import re
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -8,6 +10,19 @@ from ..core.clock import now_str
 from ..repositories import Repositories
 
 log = logging.getLogger("hotel.mail")
+
+
+ARABIC = re.compile(r"[\u0600-\u06FF]")
+URL = re.compile(r"(https?://[^\s<]+)")
+
+
+def to_html(text: str) -> str:
+    """A simple HTML version of a plain-text message: clickable links, and right-to-left when it is in Arabic."""
+    rtl = bool(ARABIC.search(text))
+    body = URL.sub(r'<a href="\1">\1</a>', html.escape(text, quote=False)).replace("\n", "<br>\n")
+    return (f'<!doctype html><html lang="{"ar" if rtl else "en"}" dir="{"rtl" if rtl else "ltr"}"><body '
+            f'style="font-family:Tahoma,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1f2933;'
+            f'text-align:{"right" if rtl else "left"}">{body}</body></html>')
 
 
 class MailDispatcher:
@@ -36,6 +51,7 @@ class MailDispatcher:
         em = EmailMessage()
         em["From"], em["To"], em["Subject"] = self.cfg.smtp_from, msg["to_address"], msg["subject"]
         em.set_content(msg["body"])
+        em.add_alternative(to_html(msg["body"]), subtype="html")
         context = ssl.create_default_context()
         if self.cfg.smtp_port == 465:
             with smtplib.SMTP_SSL(self.cfg.smtp_host, self.cfg.smtp_port, context=context, timeout=20) as s:
