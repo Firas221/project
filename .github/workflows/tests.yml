@@ -39,6 +39,7 @@ jobs:
       - name: Install Playwright
         run: |
           npm install
-          npx playwright install --with-deps chromium
+          # The system packages are an extra; if the package mirror is unreachable, the runner's own libraries are enough.
+          npx playwright install --with-deps chromium || npx playwright install chromium
       - name: Run the browser tests
         run: npm run test:browser
