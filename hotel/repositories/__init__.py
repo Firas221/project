@@ -3,7 +3,7 @@ from functools import cached_property
 
 from .finance import (AuditDayRepository, ChallengeRepository, CompanyRepository, EmailVerificationRepository,
                       InvoiceRepository,
-                      LedgerRepository, OutboxRepository, PasswordResetRepository, PromoRepository,
+                      LedgerRepository, OutboxRepository, PasswordResetRepository, PromoRepository, RatePlanRepository,
                       SeasonRepository, ShiftRepository)
 from .guests import GuestRepository
 from .identity import AuditRepository, RoleRepository, SessionRepository, SettingsRepository, UserRepository
@@ -54,6 +54,7 @@ class Repositories:
     ledger = cached_property(lambda self: LedgerRepository(self.conn))
     seasons = cached_property(lambda self: SeasonRepository(self.conn))
     promos = cached_property(lambda self: PromoRepository(self.conn))
+    rate_plans = cached_property(lambda self: RatePlanRepository(self.conn))
     shifts = cached_property(lambda self: ShiftRepository(self.conn))
     invoices = cached_property(lambda self: InvoiceRepository(self.conn))
     audit_days = cached_property(lambda self: AuditDayRepository(self.conn))

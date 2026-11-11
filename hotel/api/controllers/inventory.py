@@ -45,7 +45,7 @@ class InventoryController(Controller):
     @get("/movements", perm=Perm.INVENTORY_VIEW)
     def movements(self):
         return self.inv().movements(item_id=Int().clean(self.q("item_id")) if self.q("item_id") else None,
-                                    kind=self.q("kind"), date_from=self.q("from"), date_to=self.q("to"))
+                                    kind=self.q("kind"), date_from=self.q("from"), date_to=self.q("to"), **self.paging())
 
     @get("/suppliers", perm=Perm.INVENTORY_VIEW)
     def suppliers(self):

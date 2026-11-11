@@ -13,7 +13,7 @@ from .notifications import NotificationService
 GENERIC_LOGIN_ERROR = "Invalid username or password"
 VERIFY_HOURS = 48
 # Profile fields copied from an older guest profile when it is merged into a verified account.
-MERGE_FIELDS = ("phone", "address", "nationality", "id_number", "date_of_birth", "gender", "notes")
+MERGE_FIELDS = ("phone", "address", "nationality", "id_number", "date_of_birth", "gender", "notes", "language")
 
 
 class RegisterSchema(Schema):
@@ -25,6 +25,7 @@ class RegisterSchema(Schema):
     password = Str(required=True, max_len=128)
     accept_privacy = Bool("Privacy notice acceptance")
     marketing_consent = Bool()
+    language = Str(choices=("", "en", "ar"))
 
 
 class AuthService(Service):
@@ -287,7 +288,7 @@ class AuthService(Service):
         # after the address has been confirmed — see _adopt_earlier_profiles.
         stamp = now_str()
         guest_id = self.repos.guests.insert(first_name=v["first_name"], last_name=v["last_name"], email=v["email"],
-                                            phone=v["phone"], nationality=v["nationality"],
+                                            phone=v["phone"], nationality=v["nationality"], language=v["language"],
                                             privacy_accepted_at=stamp, marketing_consent=int(v["marketing_consent"]))
         uid = self.repos.users.insert(username=v["email"], email=v["email"], role=Role.GUEST, guest_id=guest_id,
                                       full_name=f"{v['first_name']} {v['last_name']}",

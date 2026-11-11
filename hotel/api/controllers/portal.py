@@ -58,6 +58,14 @@ class GuestPortalController(Controller):
     def cancel(self, reservation_id):
         return self.portal().cancel(reservation_id)
 
+    @post("/portal/reservations/{reservation_id}/change", audience="guest")
+    def change(self, reservation_id):
+        return self.portal().change(reservation_id, self.body, preview=bool(self.body.get("preview")))
+
+    @post("/portal/language", audience="guest")
+    def language(self):
+        self.portal().set_language(self.body.get("language"))
+
     @get("/portal/reservations/{reservation_id}/invoice", audience="guest")
     def invoice(self, reservation_id):
         return self.portal().invoice(reservation_id)

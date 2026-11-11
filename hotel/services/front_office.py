@@ -10,6 +10,8 @@ from ..core.validation import Bool, Date, Email, Int, Money, Number, Phone, Sche
 from .base import Service
 
 ID_TYPES = ("passport", "national_id", "driving_license", "other")
+MEAL_PLANS = ("room_only", "breakfast", "half_board", "full_board")
+LANGUAGES = ("", "en", "ar")
 MAX_PHOTO_BYTES = 1_500_000
 MAX_PHOTOS_PER_TYPE = 8
 
@@ -39,6 +41,7 @@ class GuestSchema(Schema):
     vip = Bool()
     notes = Str(max_len=2000, multiline=True)
     marketing_consent = Bool()
+    language = Str("Language for e-mails", choices=LANGUAGES)
 
 
 class RoomTypeSchema(Schema):
@@ -81,10 +84,23 @@ class PromoSchema(Schema):
     active = Bool(default=True)
 
 
+class RatePlanSchema(Schema):
+    name = Str(required=True, max_len=80)
+    name_ar = Str("Name (Arabic)", max_len=80)
+    description = Str(max_len=300)
+    meal_plan = Str(choices=MEAL_PLANS, default="room_only")
+    adjust_pct = Number("Rate adjustment %", min_value=-90, max_value=200, places=2, default=0)
+    per_adult = Money("Per adult / night", default=0)
+    per_child = Money("Per child / night", default=0)
+    refundable = Bool(default=True)
+    online = Bool(default=True)
+    active = Bool(default=True)
+
+
 class GuestService(Service):
-    def search(self, q=None):
+    def search(self, q=None, **paging):
         self.require(Perm.GUESTS_VIEW)
-        return self.repos.guests.search(q)
+        return self.repos.guests.search(q, **paging)
 
     def get(self, guest_id: int) -> dict:
         self.require(Perm.GUESTS_VIEW)
@@ -263,7 +279,7 @@ class PricingService(Service):
     """Nightly rates = base rate × season adjustment × weekend uplift, minus promo/corporate discount."""
 
     def quote(self, room_type_id: int, check_in: str, check_out: str, promo_code: str = "", company_id: int = None,
-              online: bool = False) -> dict:
+              online: bool = False, rate_plan: dict = None, adults: int = 1, children: int = 0) -> dict:
         rt = self.repos.room_types.require(room_type_id, "Room type")
         n = nights(check_in, check_out)
         if n < 1:
@@ -283,6 +299,9 @@ class PricingService(Service):
             if dt.date.fromisoformat(day).weekday() in weekend and weekend_pct:
                 rate *= 1 + weekend_pct / 100
                 label.append("weekend")
+            if rate_plan:
+                rate = (rate * (1 + rate_plan["adjust_pct"] / 100)
+                        + rate_plan["per_adult"] * max(1, adults) + rate_plan["per_child"] * max(0, children))
             nightly.append({"date": day, "rate": money(rate), "label": ", ".join(label)})
         subtotal = money(sum(x["rate"] for x in nightly))
         discount_pct, discount_label = 0.0, ""
@@ -298,7 +317,43 @@ class PricingService(Service):
         return {"room_type_id": room_type_id, "room_type": rt["name"], "nights": n, "nightly": nightly,
                 "subtotal": subtotal, "discount_pct": discount_pct, "discount": discount, "discount_label": discount_label,
                 "total": total, "average_rate": money(total / n), "min_nights": min_nights,
-                "meets_min_stay": n >= min_nights}
+                "meets_min_stay": n >= min_nights,
+                "rate_plan": ({k: rate_plan[k] for k in ("id", "name", "name_ar", "meal_plan", "refundable")}
+                              if rate_plan else None)}
+
+    # ---- rate plans (meal plans, non-refundable rates)
+    def plan(self, rate_plan_id, online: bool = False):
+        """The rate plan to price a new booking with, or None for the standard room-only, flexible rate."""
+        if not rate_plan_id:
+            return None
+        plan = self.repos.rate_plans.require(rate_plan_id, "Rate plan")
+        if not plan["active"] or (online and not plan["online"]):
+            raise ValidationError("This rate plan is not available", field="rate_plan_id")
+        return plan
+
+    def rate_plans(self, online: bool = False, include_inactive: bool = False) -> list:
+        return self.repos.rate_plans.all() if include_inactive else self.repos.rate_plans.offered(online)
+
+    def save_rate_plan(self, data, plan_id=None):
+        self.require(Perm.ROOMS_MANAGE)
+        v = RatePlanSchema.validate(data)
+        if self.repos.rate_plans.exists(name=v["name"], exclude_id=plan_id):
+            raise Conflict("A rate plan with this name already exists")
+        for k in ("refundable", "online", "active"):
+            v[k] = int(v[k])
+        if plan_id:
+            self.repos.rate_plans.require(plan_id)
+            self.repos.rate_plans.update(plan_id, **v)
+        else:
+            plan_id = self.repos.rate_plans.insert(**v)
+        self.audit("rate_plan_save", "rate_plan", plan_id, f"{v['name']} {v['adjust_pct']:+g}% +{v['per_adult']:g}/adult")
+        return self.repos.rate_plans.get(plan_id)
+
+    def delete_rate_plan(self, plan_id):
+        self.require(Perm.ROOMS_MANAGE)
+        p = self.repos.rate_plans.require(plan_id)
+        self.repos.rate_plans.delete(plan_id)   # existing bookings keep the plan's name, meals and price
+        self.audit("rate_plan_delete", "rate_plan", plan_id, p["name"])
 
     def validate_promo(self, code: str, check_in: str, online: bool) -> dict:
         promo = self.repos.promos.by_code(code.strip().upper())

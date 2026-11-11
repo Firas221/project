@@ -228,9 +228,9 @@ class InvoiceService(Service):
         inv = self.repos.invoices.first_by(reservation_id=reservation_id)
         return self.get(inv["id"]) if inv else None
 
-    def search(self, date_from=None, date_to=None):
+    def search(self, date_from=None, date_to=None, **paging):
         self.require(Perm.BILLING_VIEW)
-        return self.repos.invoices.search(date_from, date_to)
+        return self.repos.invoices.search(date_from, date_to, **paging)
 
 
 class CashierService(Service):

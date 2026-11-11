@@ -61,6 +61,12 @@ class Controller:
     def flag(self, name: str) -> bool:
         return str(self.req.query.get(name, "")).lower() in ("1", "true", "yes", "on")
 
+    def paging(self) -> dict:
+        """`?page=2&per_page=50` asks for one page ({items, total, page, pages}); without it the full list is returned."""
+        if self.q("page") is None:
+            return {}
+        return {"page": self.q("page"), "per_page": self.q("per_page")}
+
     def svc(self, cls):
         return self.req.ctx.service(cls)
 

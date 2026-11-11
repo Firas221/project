@@ -8,7 +8,7 @@ from .api.controllers import CONTROLLERS
 from .api.dispatcher import Dispatcher
 from .api.router import Router
 from .config import Config
-from .core.clock import add_days
+from .core.clock import add_days, now_str
 from .core.permissions import system_principal
 from .core.security import PasswordHasher, RateLimiter
 from .db.database import Database
@@ -18,6 +18,8 @@ from .infrastructure.backup import BackupManager
 from .infrastructure.mailer import MailDispatcher
 from .repositories import Repositories
 from .services.base import ServiceContext
+from .services.notifications import NotificationService
+from .services.operations import HousekeepingService
 from .services.reports import NightAuditService
 
 log = logging.getLogger("hotel")
@@ -60,10 +62,55 @@ class HotelApp:
                         self.backups.run()
                 except Exception:
                     log.exception("Automatic backup failed")
+            for job in (self.run_scheduled_night_audit, self.run_scheduled_stayover_tasks, self.send_arrival_reminders):
+                try:
+                    job()
+                except Exception:
+                    log.exception("Scheduled job %s failed", job.__name__)
+
+    # ------------------------------------------------------------ scheduled housekeeping
+    def run_scheduled_stayover_tasks(self, now: dt.datetime = None) -> int:
+        """Once a day, from the time the administrator chose, creates the stay-over cleaning task for every
+        occupied room. Returns how many tasks were created (-1 when it was not due)."""
+        now = now or dt.datetime.now()
+        today = now.date().isoformat()
+        with self.db.unit_of_work(write=False) as conn:
+            settings = Repositories(conn).settings.as_dict()
+        if (settings.get("auto_stayover_tasks") != "1" or settings.get("stayover_generated_on") == today
+                or now.strftime("%H:%M") < (settings.get("stayover_time") or "08:00")):
+            return -1
+        with self.db.unit_of_work(write=True) as conn:
+            ctx = ServiceContext(conn, system_principal(), "", self)
+            if ctx.repos.settings.as_dict().get("stayover_generated_on") == today:
+                return -1
+            created = ctx.service(HousekeepingService).generate_stayovers()["created"]
+            ctx.repos.settings.put("stayover_generated_on", today)
+        log.info("Created %s stay-over cleaning tasks", created)
+        return created
+
+    # ------------------------------------------------------------ arrival reminders
+    def send_arrival_reminders(self, now: dt.datetime = None) -> int:
+        """E-mails guests a reminder a few days before they arrive (Settings → "Reminder before arrival").
+        Each booking is reminded once; bookings made inside the window are not, as they just got a confirmation."""
+        today = (now or dt.datetime.now()).date().isoformat()
+        with self.db.unit_of_work(write=False) as conn:
+            repos = Repositories(conn)
             try:
-                self.run_scheduled_night_audit()
-            except Exception:
-                log.exception("Automatic night audit failed")
+                days = int(repos.settings.as_dict().get("arrival_reminder_days") or 0)
+            except ValueError:
+                days = 0
+            due = repos.reservations.due_for_reminder(add_days(today, 1), add_days(today, days)) if days > 0 else []
+        if not due:
+            return 0
+        sent = 0
+        with self.db.unit_of_work(write=True) as conn:
+            ctx = ServiceContext(conn, system_principal(), "", self)
+            for res in ctx.repos.reservations.due_for_reminder(add_days(today, 1), add_days(today, days)):
+                if res["created_at"][:10] < add_days(res["check_in"], -days):
+                    ctx.service(NotificationService).arrival_reminder(res, res["guest_email"])
+                    sent += 1
+                ctx.repos.reservations.update(res["id"], reminder_sent_at=now_str())
+        return sent
 
     # ------------------------------------------------------------ scheduled night audit
     def run_scheduled_night_audit(self, now: dt.datetime = None) -> list:

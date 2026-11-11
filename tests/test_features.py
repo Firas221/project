@@ -8,6 +8,7 @@ import zlib
 
 from support import AppTestCase, d  # first: puts the project on sys.path
 
+from hotel.db.database import Database  # noqa: E402
 from hotel.services.front_office import sniff_image  # noqa: E402
 
 
@@ -264,6 +265,6 @@ class HealthTests(AppTestCase):
     def test_health_is_public_and_minimal(self):
         status, body = self.client().req("GET", "/api/health")
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"status": "ok", "schema": 3})
+        self.assertEqual(body, {"status": "ok", "schema": Database.latest_version()})
         for _ in range(80):   # probes are not throttled like other public endpoints
             self.assertEqual(self.client().req("GET", "/api/health")[0], 200)

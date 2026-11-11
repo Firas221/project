@@ -93,7 +93,7 @@ class AuditController(Controller):
     @get("/audit", perm=Perm.AUDIT_VIEW)
     def list(self):
         return self.svc(AuditService).search(q=self.q("q"), action=self.q("action"), date_from=self.q("from"),
-                                             date_to=self.q("to"))
+                                             date_to=self.q("to"), **self.paging())
 
     @get("/outbox", perm=Perm.AUDIT_VIEW)
     def outbox(self):
@@ -149,6 +149,9 @@ class ReportController(Controller):
         return result
 
 
+EXPORT_ROWS = 100_000   # exports hold everything in the period, not just the first screenful
+
+
 class ExportController(Controller):
     EXPORTS = {
         "reservations": (Perm.RESERVATIONS_VIEW, ["code", "guest_name", "guest_email", "room_number", "room_type",
@@ -179,14 +182,14 @@ class ExportController(Controller):
         frm, to = self.q("from"), self.q("to")
         rows = {
             "reservations": lambda: self.svc(ReservationService).search(status=self.q("status"), q=self.q("q"),
-                                                                        date_from=frm, date_to=to),
-            "guests": lambda: self.svc(GuestService).search(self.q("q")),
+                                                                        date_from=frm, date_to=to, limit=EXPORT_ROWS),
+            "guests": lambda: self.svc(GuestService).search(self.q("q"), limit=EXPORT_ROWS),
             "items": lambda: self.svc(InventoryService).search(),
-            "movements": lambda: self.svc(InventoryService).movements(date_from=frm, date_to=to),
+            "movements": lambda: self.svc(InventoryService).movements(date_from=frm, date_to=to, limit=EXPORT_ROWS),
             "daily": lambda: self.svc(ReportService).summary(frm, to)["daily"],
             "tax": lambda: self.svc(ReportService).tax_report(frm, to)["invoices"],
             "guest_register": lambda: self.svc(GuestService).registration_report(self.q("date") or today_iso(),
                                                                                  foreign_only=not self.flag("all")),
-            "audit": lambda: self.svc(AuditService).search(date_from=frm, date_to=to),
+            "audit": lambda: self.svc(AuditService).search(date_from=frm, date_to=to, limit=EXPORT_ROWS),
         }[name]()
         return to_csv(name, header, rows)

@@ -49,6 +49,9 @@ class SettingsSchema(Schema):
     require_email_verification = Bool()
     auto_night_audit = Bool()
     night_audit_time = Time()
+    auto_stayover_tasks = Bool()
+    stayover_time = Time()
+    arrival_reminder_days = Number(min_value=0, max_value=14, integer=True)
 
 
 class UserAdminService(Service):
@@ -190,8 +193,7 @@ class AuditService(Service):
         self.require(Perm.AUDIT_VIEW)
         rows = self.repos.outbox.recent()
         for r in rows:  # never expose one-time links to the browser
-            subject = r["subject"].lower()
-            if "reset" in subject or "confirm your e-mail" in subject:
+            if "#reset=" in r["body"] or "#verify=" in r["body"]:
                 r["body"] = "(hidden: contains a one-time link)"
         return rows
 

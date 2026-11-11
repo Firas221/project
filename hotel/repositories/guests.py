@@ -1,11 +1,11 @@
 """Guest profiles."""
-from .base import BaseRepository, QueryBuilder
+from .base import BaseRepository, QueryBuilder, page_of
 
 
 class GuestRepository(BaseRepository):
     table = "guests"
     columns = ("first_name", "last_name", "email", "phone", "address", "nationality", "id_type", "id_number",
-               "date_of_birth", "gender", "vip", "notes", "marketing_consent", "privacy_accepted_at", "anonymized_at")
+               "date_of_birth", "gender", "vip", "notes", "marketing_consent", "privacy_accepted_at", "anonymized_at", "language")
     select_sql = (
         "SELECT t.*, (SELECT COUNT(*) FROM reservations r WHERE r.guest_id = t.id AND r.status IN ('checked_in','checked_out')) AS stays,"
         " (SELECT MAX(r.check_in) FROM reservations r WHERE r.guest_id = t.id) AS last_stay,"
@@ -15,10 +15,12 @@ class GuestRepository(BaseRepository):
     default_order = "t.last_name, t.first_name"
     entity_label = "Guest"
 
-    def search(self, q: str = None, limit: int = 500) -> list:
+    def search(self, q: str = None, limit: int = 500, page=None, per_page=None):
         qb = QueryBuilder(self.select_sql)
         if q:
             like = f"%{q}%"
             qb.add("(t.first_name || ' ' || t.last_name LIKE ? OR t.email LIKE ? OR t.phone LIKE ? OR t.id_number LIKE ?)",
                    like, like, like, like)
+        if page is not None:
+            return page_of(self, qb, self.default_order, page, per_page)
         return self.fetch_all(qb.sql(self.default_order, limit), qb.args)
