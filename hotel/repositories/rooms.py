@@ -6,7 +6,7 @@ from .base import BaseRepository, QueryBuilder
 class RoomTypeRepository(BaseRepository):
     table = "room_types"
     columns = ("name", "description", "base_rate", "capacity", "bed_type", "size_sqm", "amenities", "active", "max_extra_beds",
-               "extra_bed_rate")
+               "extra_bed_rate", "online_hold_back")
     select_sql = ("SELECT t.*, (SELECT COUNT(*) FROM rooms r WHERE r.type_id = t.id) AS room_count"
                   " FROM room_types t")
     default_order = "t.base_rate, t.name"

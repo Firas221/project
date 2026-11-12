@@ -57,10 +57,8 @@ class PublicService(Service):
     def search(self, data: dict) -> dict:
         v = SearchSchema.validate(data)
         self.check_online_stay(v["check_in"], v["check_out"])
-        free = self.repos.rooms.available(v["check_in"], v["check_out"], v["adults"] + v["children"])
-        counts = {}
-        for room in free:
-            counts[room["type_id"]] = counts.get(room["type_id"], 0) + 1
+        from .waitlist import WaitlistService
+        counts = self.use(WaitlistService).sellable_online(v["check_in"], v["check_out"], v["adults"] + v["children"])
         pricing = self.use(PricingService)
         plans = pricing.rate_plans(online=True)
         offers = []
@@ -176,7 +174,9 @@ class GuestPortalService(Service):
             raise Conflict("You have reached the maximum number of active online bookings. Please contact us.")
         v = SearchSchema.validate(data)
         type_id = Int("Room type", required=True).clean(data.get("room_type_id"))
-        PublicService(self.ctx).search(v)  # re-validates the online limits
+        offers = PublicService(self.ctx).search(v)["offers"]  # re-validates the online limits
+        if type_id not in {o["id"] for o in offers}:
+            raise Conflict("This room type is not available online for these dates. Please contact the hotel.")
         payload = {"guest_id": gid, "room_type_id": type_id, "check_in": v["check_in"], "check_out": v["check_out"],
                    "adults": v["adults"], "children": v["children"], "infants": v["infants"],
                    "promo_code": v["promo_code"],
@@ -198,6 +198,12 @@ class GuestPortalService(Service):
             raise Conflict("This booking can no longer be changed online. Please contact the hotel.")
         v = ChangeSchema.validate(data)
         PublicService(self.ctx).check_online_stay(v["check_in"], v["check_out"])
+        new_type = v["room_type_id"] or res["room_type_id"]
+        if (v["check_in"], v["check_out"], new_type) != (res["check_in"], res["check_out"], res["room_type_id"]):
+            from .waitlist import WaitlistService
+            closed = self.repos.stop_sells.blocked_types(v["check_in"], v["check_out"])
+            if None in closed or new_type in closed:
+                raise Conflict("This room type is not available online for these dates. Please contact the hotel.")
         result = self.use(ReservationService).change_online(
             res, v["check_in"], v["check_out"], v["adults"], v["children"], v["room_type_id"] or res["room_type_id"], preview,
             infants=v["infants"])
@@ -219,6 +225,24 @@ class GuestPortalService(Service):
         if not inv:
             raise NotFound("No invoice has been issued for this stay yet")
         return inv
+
+    # ------------------------------------------------------------ waiting list
+    def join_waitlist(self, data: dict) -> dict:
+        from .waitlist import WaitlistService
+        entry = self.use(WaitlistService).add(data, online_guest_id=self._guest_id())
+        return {k: entry[k] for k in ("id", "check_in", "check_out", "room_type", "status")}
+
+    def my_waitlist(self) -> list:
+        return [{k: e[k] for k in ("id", "check_in", "check_out", "room_type", "adults", "children", "status")}
+                for e in self.repos.waitlist.search("waiting", guest_id=self._guest_id())]
+
+    def leave_waitlist(self, entry_id: int) -> None:
+        entry = self.repos.waitlist.get(entry_id)
+        if not entry or entry["guest_id"] != self._guest_id():
+            raise NotFound("Not found")
+        if entry["status"] == "waiting":
+            self.repos.waitlist.update(entry_id, status="cancelled")
+            self.audit("waitlist_cancelled", "waitlist", entry_id, "by guest")
 
     # ------------------------------------------------------------ in-stay services
     def menu(self) -> list:

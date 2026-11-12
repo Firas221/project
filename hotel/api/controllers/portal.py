@@ -62,6 +62,18 @@ class GuestPortalController(Controller):
     def change(self, reservation_id):
         return self.portal().change(reservation_id, self.body, preview=bool(self.body.get("preview")))
 
+    @get("/portal/waitlist", audience="guest")
+    def my_waitlist(self):
+        return self.portal().my_waitlist()
+
+    @post("/portal/waitlist", audience="guest")
+    def join_waitlist(self):
+        return self.portal().join_waitlist(self.body)
+
+    @delete("/portal/waitlist/{entry_id}", audience="guest")
+    def leave_waitlist(self, entry_id):
+        self.portal().leave_waitlist(entry_id)
+
     @post("/portal/language", audience="guest")
     def language(self):
         self.portal().set_language(self.body.get("language"))

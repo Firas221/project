@@ -8,11 +8,13 @@ import * as kitchen from '../views/kitchen.js';
 import * as inv from '../views/inventory.js';
 import * as fin from '../views/finance.js';
 import * as admin from '../views/admin.js';
+import { waitlistView } from '../views/waitlist.js';
 
 export const SCREENS = {
   dashboard: { label: 'Dashboard', icon: 'dashboard', perm: 'dashboard.view', view: fd.dashboardView, live: 60 },
   calendar: { label: 'Room calendar', icon: 'calendar', perm: 'reservations.view', view: fd.calendarView },
   reservations: { label: 'Reservations', icon: 'reservations', perm: 'reservations.view', view: fd.reservationsView },
+  waitlist: { label: 'Waiting list', icon: 'list', perm: 'reservations.view', view: waitlistView, live: 60 },
   guests: { label: 'Guests', icon: 'guests', perm: 'guests.view', view: guests.guestsView },
   housekeeping: { label: 'Housekeeping', icon: 'housekeeping', perm: 'housekeeping.view', view: ops.housekeepingBoardView, live: 30 },
   maintenance: { label: 'Maintenance', icon: 'wrench', perm: 'maintenance.report', view: ops.maintenanceView, live: 60 },

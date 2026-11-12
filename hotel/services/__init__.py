@@ -16,6 +16,7 @@ from .operations import (GuestRequestService, HousekeepingService, LostFoundServ
 from .portal import GuestPortalService, PublicService
 from .reports import DashboardService, NightAuditService, ReportService
 from .reservations import ReservationService
+from .waitlist import WaitlistService
 
 __all__ = [
     "AlertService", "AuditService", "AuthService", "BillingService", "CashierService", "CompanyService", "DashboardService",
@@ -23,5 +24,5 @@ __all__ = [
     "InvoiceService", "LostFoundService", "MaintenanceService", "MenuService", "NightAuditService",
     "NotificationService", "OrderService", "PricingService", "PrivacyService", "PublicService", "PurchasingService",
     "ReportService", "ReservationService", "ReviewService", "RoleService", "RoomService", "Service", "ServiceContext",
-    "SettingsService", "StockRequestService", "TaxCalculator", "UserAdminService",
+    "SettingsService", "StockRequestService", "TaxCalculator", "UserAdminService", "WaitlistService",
 ]

@@ -4,6 +4,40 @@ from .base import BaseRepository, QueryBuilder, page_of
 ACTIVE = ("booked", "checked_in")
 
 
+class WaitlistRepository(BaseRepository):
+    table = "waitlist"
+    columns = ("guest_id", "name", "phone", "email", "room_type_id", "check_in", "check_out", "adults", "children", "notes",
+               "status", "reservation_id", "source", "alerted_at", "created_by")
+    select_sql = ("SELECT t.*, rt.name AS room_type, r.code AS reservation_code FROM waitlist t"
+                  " LEFT JOIN room_types rt ON rt.id = t.room_type_id LEFT JOIN reservations r ON r.id = t.reservation_id")
+    default_order = "t.check_in, t.id"
+    entity_label = "Waitlist entry"
+
+    def search(self, status: str = "waiting", guest_id: int = None) -> list:
+        qb = QueryBuilder(self.select_sql)
+        qb.add_if(status, "t.status = ?", status)
+        qb.add_if(guest_id, "t.guest_id = ?", guest_id)
+        return self.fetch_all(qb.sql(self.default_order, 500), qb.args)
+
+    def waiting_between(self, start: str, end: str) -> list:
+        """Entries still waiting whose dates overlap [start, end)."""
+        return self.fetch_all(self.select_sql + " WHERE t.status = 'waiting' AND t.check_in < ? AND t.check_out > ?"
+                              " ORDER BY t.id", (end, start))
+
+
+class StopSellRepository(BaseRepository):
+    table = "stop_sells"
+    columns = ("room_type_id", "start_date", "end_date", "reason", "created_by")
+    select_sql = "SELECT t.*, rt.name AS room_type FROM stop_sells t LEFT JOIN room_types rt ON rt.id = t.room_type_id"
+    default_order = "t.start_date, t.id"
+    entity_label = "Stop-sell"
+
+    def blocked_types(self, check_in: str, check_out: str) -> set:
+        """Room types closed to online sale on any night of the stay. None in the set means every type."""
+        rows = self.fetch_all("SELECT room_type_id FROM stop_sells WHERE start_date < ? AND end_date >= ?", (check_out, check_in))
+        return {r["room_type_id"] for r in rows}
+
+
 class ReservationRepository(BaseRepository):
     table = "reservations"
     columns = ("code", "guest_id", "room_id", "check_in", "check_out", "adults", "children", "rate", "status", "source",

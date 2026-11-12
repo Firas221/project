@@ -151,15 +151,15 @@ export async function newReservation(prefill = {}) {
       <input type="hidden" name="guest_id" value="${esc(prefill.guest_id || '')}"><div class="pick-list hidden" id="g-results"></div>
       <div class="small muted" id="g-picked">${prefill.guest_id ? 'Selected: ' + esc(prefill.guest_name) : 'No guest selected'}</div></div>
     <div id="g-new" class="form-grid ${prefill.guest_id ? 'hidden' : ''}">
-      ${field('First name *', 'first_name')}${field('Last name *', 'last_name')}${field('E-mail', 'email', '', 'type="email"')}${field('Phone', 'phone')}
+      ${field('First name *', 'first_name', prefill.first_name)}${field('Last name *', 'last_name', prefill.last_name)}${field('E-mail', 'email', prefill.email, 'type="email"')}${field('Phone', 'phone', prefill.phone)}
       ${field('Nationality', 'nationality', '', 'list="nat-list"')}${selectField('ID type', 'id_type', [['passport', 'Passport'], ['national_id', 'Egyptian national ID'], ['driving_license', 'Driving licence'], ['other', 'Other']], 'passport')}
       ${field('ID / passport no.', 'id_number')}${check('VIP guest', 'vip')}
       <datalist id="nat-list">${['Egyptian', 'Saudi', 'Emirati', 'Kuwaiti', 'Jordanian', 'Lebanese', 'British', 'German', 'Italian', 'French', 'American', 'Russian', 'Chinese'].map((n) => `<option value="${n}">`).join('')}</datalist></div>
     <div class="form-section">Stay</div>
     <div class="form-grid g4">${field('Check-in *', 'check_in', ci, 'type="date"')}${field('Check-out *', 'check_out', prefill.check_out || addDays(ci, 1), 'type="date"')}
-      ${field('Adults', 'adults', 1, 'type="number" min="1" max="20"')}${field('Children', 'children', 0, 'type="number" min="0" max="20"')}
+      ${field('Adults', 'adults', prefill.adults || 1, 'type="number" min="1" max="20"')}${field('Children', 'children', prefill.children || 0, 'type="number" min="0" max="20"')}
       ${field(infantLabel(), 'infants', 0, 'type="number" min="0" max="6"')}${field('Extra beds (empty = as needed)', 'extra_beds', '', 'type="number" min="0" max="4"')}
-      ${selectField('Room type', 'type_id', [['', 'Any type']].concat(types.filter((t) => t.active).map((t) => [t.id, `${t.name} (${money(t.base_rate)})`])), '', 'full')}</div>
+      ${selectField('Room type', 'type_id', [['', 'Any type']].concat(types.filter((t) => t.active).map((t) => [t.id, `${t.name} (${money(t.base_rate)})`])), prefill.type_id || '', 'full')}</div>
     <div><div class="small muted" id="avail-info"></div><div class="room-options" id="room-options"></div></div>
     <div class="form-section">Rate, company &amp; deposit</div>
     <div class="form-grid g4">
@@ -251,7 +251,11 @@ export async function newReservation(prefill = {}) {
       return POST('/reservations', payload);
     },
   });
-  if (res && res.id) { toast(`Reservation ${res.code} created`, 'success'); location.hash = '#/reservations/' + res.id; }
+  if (res && res.id) {
+    if (prefill.onCreated) await prefill.onCreated(res);
+    toast(`Reservation ${res.code} created`, 'success');
+    location.hash = '#/reservations/' + res.id;
+  }
 }
 
 /** One line describing a rate plan in a drop-down: "Bed & breakfast — Breakfast included, +350.00 EGP per adult". */

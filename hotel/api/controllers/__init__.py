@@ -3,7 +3,7 @@ from .admin import (AlertController, AuditController, ExportController, ReportCo
                     UserController)
 from .auth import AuthController
 from .front_office import (CashierController, CompanyController, DashboardController, GuestController,
-                           InvoiceController, ReservationController, RoomController)
+                           InvoiceController, ReservationController, RoomController, WaitlistController)
 from .inventory import InventoryController, PurchasingController, StockRequestController
 from .operations import (GuestRequestController, HousekeepingController, KitchenController, LostFoundController,
                          MaintenanceController, ReviewController)
@@ -12,7 +12,7 @@ from .portal import GuestPortalController, PublicController
 CONTROLLERS = [
     AuthController, PublicController, GuestPortalController,
     DashboardController, ReservationController, InvoiceController, GuestController, RoomController,
-    CashierController, CompanyController,
+    WaitlistController, CashierController, CompanyController,
     HousekeepingController, MaintenanceController, GuestRequestController, LostFoundController, ReviewController,
     KitchenController,
     InventoryController, PurchasingController, StockRequestController,

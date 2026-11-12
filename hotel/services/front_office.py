@@ -56,6 +56,7 @@ class RoomTypeSchema(Schema):
     active = Bool(default=True)
     max_extra_beds = Int("Extra beds", min_value=0, max_value=4, default=0)
     extra_bed_rate = Money("Extra bed rate", default=0)
+    online_hold_back = Int("Rooms kept off the website", min_value=0, max_value=500, default=0)
 
 
 class RoomSchema(Schema):

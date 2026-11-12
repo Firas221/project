@@ -99,7 +99,16 @@ async function search(q) {
       <div class="offer-price"><div class="big-price" data-price>${money(withTax(o.quote.total))}</div><div class="small muted">${o.quote.nights} ${t('nights')} · ${t('inclTaxes')}</div>
       <div class="small muted"><span data-avg>${money(o.quote.average_rate)}</span> ${t('avgRate')}</div>${o.rooms_left <= 3 ? `<div class="small text-bad">${o.rooms_left} ${t('left')}</div>` : ''}
       <button class="btn primary" data-book="${o.id}" ${o.quote.meets_min_stay ? '' : 'disabled'}>${t('book')}</button></div></article>`).join('')}</div>`
-    : `<div class="notice warn">${t('noRooms')}</div>`}`;
+    : `<div class="notice warn">${t('noRooms')}</div>
+      <div class="card card-body" style="margin-top:12px" id="wl"><p>${t('waitlistNote')}</p><button class="btn primary" id="join-wl">${t('joinWaitlist')}</button></div>`}`;
+  const join = $('#join-wl', box);
+  if (join) join.addEventListener('click', async () => {
+    if (!session || session.user.role !== 'guest') { location.href = '/login?next=' + encodeURIComponent('/') + '&register=1'; return; }
+    try {
+      await POST('/portal/waitlist', { check_in: q.check_in, check_out: q.check_out, adults: q.adults, children: q.children });
+      $('#wl', box).innerHTML = `<div class="notice">${t('onWaitlist')}</div>`;
+    } catch (e) { toast(e.message, 'error'); }
+  });
   $$('.rate-opt input', box).forEach((radio) => radio.addEventListener('change', () => {
     const card = radio.closest('.offer');
     $('[data-price]', card).textContent = money(+radio.dataset.total);

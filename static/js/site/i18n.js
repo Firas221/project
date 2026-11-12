@@ -26,6 +26,8 @@ const STRINGS = {
     changed: 'Your booking has been changed.', promoDropped: 'Your promo code is no longer valid for these dates and was removed.',
     changeNote: 'You can change dates, guests or room type. The price is worked out again at today’s rates.',
     infants: 'Infants (under {age})', extraBed: 'incl. {n} extra bed(s)', infantsFree: '{n} infant(s), free',
+    joinWaitlist: 'Join the waiting list', waitlistNote: 'We will contact you if a room becomes available for these dates.',
+    onWaitlist: 'You are on the waiting list for these dates.', waitlistTitle: 'Waiting list', leaveWaitlist: 'Leave', anyRoom: 'Any room',
     payAtHotel: 'Payment is taken at the hotel.', minStay: 'Minimum stay', staffLink: 'Staff', emailLanguage: 'E-mails in',
   },
   ar: {
@@ -54,6 +56,8 @@ const STRINGS = {
     changed: 'تم تعديل حجزك.', promoDropped: 'رمز الخصم لم يعد صالحًا لهذه التواريخ وتمت إزالته.',
     changeNote: 'يمكنك تغيير التواريخ أو عدد النزلاء أو نوع الغرفة. يُعاد حساب السعر بأسعار اليوم.',
     infants: 'رضّع وصغار (أقل من {age})', extraBed: 'شامل {n} سرير إضافي', infantsFree: '{n} رضيع، مجانًا',
+    joinWaitlist: 'انضم إلى قائمة الانتظار', waitlistNote: 'سنتواصل معك إذا توفرت غرفة في هذه التواريخ.',
+    onWaitlist: 'أنت على قائمة الانتظار لهذه التواريخ.', waitlistTitle: 'قائمة الانتظار', leaveWaitlist: 'انسحاب', anyRoom: 'أي غرفة',
     payAtHotel: 'يتم الدفع في الفندق.', minStay: 'أقل مدة إقامة', staffLink: 'الموظفون', emailLanguage: 'لغة الرسائل',
   },
 };

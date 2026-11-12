@@ -12,7 +12,8 @@ from .inventory import (ItemRepository, MovementRepository, PurchaseOrderReposit
 from .kitchen import MenuRepository, OrderRepository
 from .operations import (AlertRepository, GuestRequestRepository, HousekeepingTaskRepository, LostFoundRepository,
                          MaintenanceRepository, ReviewRepository)
-from .reservations import ChargeRepository, PaymentRepository, ReservationRepository
+from .reservations import (ChargeRepository, PaymentRepository, ReservationRepository, StopSellRepository,
+                           WaitlistRepository)
 from .rooms import RoomPhotoRepository, RoomRepository, RoomTypeRepository
 
 
@@ -34,6 +35,8 @@ class Repositories:
     rooms = cached_property(lambda self: RoomRepository(self.conn))
     room_photos = cached_property(lambda self: RoomPhotoRepository(self.conn))
     reservations = cached_property(lambda self: ReservationRepository(self.conn))
+    waitlist = cached_property(lambda self: WaitlistRepository(self.conn))
+    stop_sells = cached_property(lambda self: StopSellRepository(self.conn))
     charges = cached_property(lambda self: ChargeRepository(self.conn))
     payments = cached_property(lambda self: PaymentRepository(self.conn))
     # inventory

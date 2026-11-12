@@ -264,6 +264,8 @@ class ReservationService(Service):
             fields["reminder_sent_at"] = None   # a new arrival date gets its own reminder
         self.repos.reservations.update(res["id"], **fields)
         self.audit("reservation_update", "reservation", res["id"], f"{res['code']} {ci}→{co}")
+        if (ci, co) != (res["check_in"], res["check_out"]):
+            self._room_freed(res["check_in"], res["check_out"])
         return self.detail(res["id"])
 
     def move(self, reservation_id: int, room_id: int, keep_rate: bool = True) -> dict:
@@ -420,6 +422,7 @@ class ReservationService(Service):
         if guest["email"]:
             self.use(NotificationService).cancellation(res, guest["email"])
         self.audit("reservation_cancel", "reservation", res["id"], f"{res['code']} {'(online)' if online else ''}")
+        self._room_freed(res["check_in"], res["check_out"])
         if online:
             self.alert("A guest cancelled their booking", f"{res['code']} · {res['check_in']} → {res['check_out']}",
                        f"#/reservations/{res['id']}", permission=Perm.RESERVATIONS_MANAGE)
@@ -438,7 +441,12 @@ class ReservationService(Service):
             self.use(BillingService).post_system_charge(res, "No-show fee", "Fee", fee)
         self.repos.reservations.update(res["id"], status="no_show")
         self.audit("reservation_noshow", "reservation", res["id"], res["code"])
+        self._room_freed(res["check_in"], res["check_out"])
         return self.repos.reservations.get(res["id"])
+
+    def _room_freed(self, check_in: str, check_out: str) -> None:
+        from .waitlist import WaitlistService
+        self.use(WaitlistService).room_freed(check_in, check_out)
 
     def _ensure_task(self, room_id: int, kind: str, priority: str, notes: str) -> None:
         if not self.repos.housekeeping.open_for_room(room_id, kind):

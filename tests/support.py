@@ -16,7 +16,8 @@ from hotel.config import Config  # noqa: E402
 
 TODAY = dt.date.today()
 PASSWORDS = {"admin": "AdminPass123", "frontdesk": "FrontDesk123", "chef": "ChefPass123", "maid": "MaidPass123",
-             "maid2": "MaidPass123", "amelia.hart@example.com": "GuestPass123"}
+             "maid2": "MaidPass123", "amelia.hart@example.com": "GuestPass123", "manager": "ManagerPass123",
+             "accountant": "AccountPass123", "supervisor": "SuperPass123", "tech": "TechPass123", "store": "StorePass123"}
 
 
 def d(offset: int) -> str:

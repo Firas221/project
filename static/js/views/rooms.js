@@ -40,7 +40,8 @@ export async function roomsView(el, { params, ctx, alive }) {
     if (admin) actions.innerHTML = '<button class="btn primary" id="add">+ New room type</button>';
     body.innerHTML = `<div class="card">${table(['Name', 'Bed', ['Size', 'num'], ['Guests', 'num'], ['Base rate / night', 'num'], ['Rooms', 'num'], 'Status', ''], types.map((t) => `
       <tr><td><b>${esc(t.name)}</b><div class="small muted">${esc(t.amenities)}</div>
-        ${t.max_extra_beds ? `<div class="small muted">Extra beds: ${t.max_extra_beds} × ${money(t.extra_bed_rate)}</div>` : ''}</td><td>${esc(t.bed_type)}</td><td class="num">${t.size_sqm || '—'} m²</td>
+        ${t.max_extra_beds ? `<div class="small muted">Extra beds: ${t.max_extra_beds} × ${money(t.extra_bed_rate)}</div>` : ''}
+        ${t.online_hold_back ? `<div class="small muted">Kept off the website: ${t.online_hold_back}</div>` : ''}</td><td>${esc(t.bed_type)}</td><td class="num">${t.size_sqm || '—'} m²</td>
       <td class="num">${t.capacity}</td><td class="num">${money(t.base_rate)}</td><td class="num">${t.room_count}</td><td>${t.active ? badge('clean', 'Selling') : badge('closed', 'Hidden')}</td>
       <td class="actions">${admin ? `<button class="btn sm" data-photos="${t.id}">Photos (${t.photos.length})</button> <button class="btn sm" data-edit="${t.id}">Edit</button>
         <button class="btn sm ghost danger" data-del-type="${t.id}" title="Delete room type" aria-label="Delete room type">✕</button>` : ''}</td></tr>`).join(''))}</div>
@@ -50,6 +51,7 @@ export async function roomsView(el, { params, ctx, alive }) {
         body: `<div class="form-grid">${field('Name *', 'name', t.name, '', 'full')}${field('Base rate / night *', 'base_rate', t.base_rate, 'type="number" step="0.01" min="0"')}
           ${field('Max guests *', 'capacity', t.capacity || 2, 'type="number" min="1"')}${field('Bed type', 'bed_type', t.bed_type)}${field('Size (m²)', 'size_sqm', t.size_sqm || '', 'type="number" min="0"')}
           ${field('Extra beds allowed', 'max_extra_beds', t.max_extra_beds ?? 0, 'type="number" min="0" max="4"')}${field('Extra bed rate / night', 'extra_bed_rate', t.extra_bed_rate ?? 0, 'type="number" step="0.01" min="0"')}
+          ${field('Rooms kept off the website', 'online_hold_back', t.online_hold_back ?? 0, 'type="number" min="0"', 'full')}
           ${field('Description', 'description', t.description, '', 'full')}${field('Amenities', 'amenities', t.amenities, '', 'full')}${check('Available for sale', 'active', t.id ? t.active : true)}</div>`,
         onSubmit: (v) => (t.id ? PUT('/room-types/' + t.id, v) : POST('/room-types', v)) });
       if (ok) { toast('Room type saved', 'success'); ctx.refresh(); }
@@ -62,8 +64,8 @@ export async function roomsView(el, { params, ctx, alive }) {
         && await guarded(() => DEL('/room-types/' + b.dataset.delType), 'Room type deleted')) ctx.refresh();
     });
   } else {
-    const [seasons, promos, plans] = await Promise.all([GET('/seasons'), admin ? GET('/promos') : [], GET('/rate-plans?all=1')]);
-    if (admin) actions.innerHTML = '<button class="btn" id="add-plan">+ Rate plan</button><button class="btn" id="add-promo">+ Promo code</button><button class="btn primary" id="add-season">+ Season</button>';
+    const [seasons, promos, plans, stops] = await Promise.all([GET('/seasons'), admin ? GET('/promos') : [], GET('/rate-plans?all=1'), GET('/stop-sells')]);
+    if (admin) actions.innerHTML = '<button class="btn" id="add-stop">+ Stop-sell</button><button class="btn" id="add-plan">+ Rate plan</button><button class="btn" id="add-promo">+ Promo code</button><button class="btn primary" id="add-season">+ Season</button>';
     body.innerHTML = `<div class="grid g2"><div class="card"><div class="card-head"><h2>Seasons</h2></div>${table(['Season', 'Dates', 'Applies to', ['Adjust', 'num'], 'Min stay', ''],
       seasons.map((s) => `<tr><td><b>${esc(s.name)}</b> ${s.active ? '' : badge('closed', 'Off')}</td><td class="nowrap">${fmtDate(s.start_date)} – ${fmtDate(s.end_date)}</td>
         <td>${esc(s.room_type_name || 'All room types')}</td><td class="num ${s.adjust_pct < 0 ? 'text-good' : ''}">${s.adjust_pct > 0 ? '+' : ''}${s.adjust_pct}%</td>
@@ -84,7 +86,12 @@ export async function roomsView(el, { params, ctx, alive }) {
           <td class="actions">${admin ? `<button class="btn sm" data-plan="${p.id}">Edit</button>
             <button class="btn sm ghost danger" data-del-plan="${p.id}" title="Delete rate plan" aria-label="Delete rate plan">✕</button>` : ''}</td></tr>`).join(''), 'No rate plans — every booking is room only with free cancellation')}
         <div class="card-body small muted">A rate plan is another way to sell the same room: with meals (a supplement per person per night), or cheaper but non-refundable.
-          Guests choose one on the website; the desk chooses one in the booking form. Without a plan a booking is room only with free cancellation.</div></div>`;
+          Guests choose one on the website; the desk chooses one in the booking form. Without a plan a booking is room only with free cancellation.</div></div>
+      <div class="card" style="margin-top:16px"><div class="card-head"><h2>Stop-sell dates (website)</h2></div>${table(['Dates', 'Room type', 'Reason', ''],
+        stops.map((x) => `<tr><td class="nowrap">${fmtDate(x.start_date)} – ${fmtDate(x.end_date)}</td><td>${esc(x.room_type || 'All room types')}</td><td>${esc(x.reason)}</td>
+          <td class="actions">${admin ? `<button class="btn sm ghost danger" data-del-stop="${x.id}" title="Delete stop-sell" aria-label="Delete stop-sell">✕</button>` : ''}</td></tr>`).join(''), 'The website sells every date')}
+        <div class="card-body small muted">On these nights the website does not offer the room type; the front desk can still book it. To always keep some rooms in hand,
+          set “Rooms kept off the website” on the room type. A booking always holds a real room, so the hotel cannot be overbooked.</div></div>`;
     const seasonForm = async (s = {}) => {
       const ok = await modal({ title: s.id ? 'Edit season' : 'New season',
         body: `<div class="form-grid">${field('Name *', 'name', s.name, '', 'full')}${field('Start *', 'start_date', s.start_date, 'type="date"')}${field('End *', 'end_date', s.end_date, 'type="date"')}
@@ -113,6 +120,17 @@ export async function roomsView(el, { params, ctx, alive }) {
         onSubmit: (v) => (p.id ? PUT('/rate-plans/' + p.id, v) : POST('/rate-plans', v)) });
       if (ok) { toast('Rate plan saved', 'success'); ctx.refresh(); }
     };
+    if ($('#add-stop')) $('#add-stop').addEventListener('click', async () => {
+      const ok = await modal({ title: 'New stop-sell', submit: 'Stop selling online',
+        body: `<div class="form-grid">${field('From *', 'start_date', '', 'type="date"')}${field('Until (last night) *', 'end_date', '', 'type="date"')}
+          ${selectField('Room type', 'room_type_id', [['', 'All room types']].concat(types.map((t) => [t.id, t.name])), '', 'full')}${field('Reason', 'reason', '', '', 'full')}</div>`,
+        onSubmit: (v) => POST('/stop-sells', { ...v, room_type_id: v.room_type_id || null }) });
+      if (ok) { toast('Stop-sell saved', 'success'); ctx.refresh(); }
+    });
+    on(body, '[data-del-stop]', 'click', async (e, b) => {
+      if (await confirmBox('Delete stop-sell', 'Let the website sell these dates again?', 'Delete')
+        && await guarded(() => DEL('/stop-sells/' + b.dataset.delStop), 'Stop-sell deleted')) ctx.refresh();
+    });
     if ($('#add-plan')) $('#add-plan').addEventListener('click', () => planForm());
     on(body, '[data-plan]', 'click', (e, b) => planForm(plans.find((x) => x.id === +b.dataset.plan)));
     on(body, '[data-del-plan]', 'click', async (e, b) => {

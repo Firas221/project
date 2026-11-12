@@ -5,7 +5,8 @@ from ...http.messages import Binary
 from ...core.permissions import Perm
 from ...core.validation import Bool, Int, Number
 from ...services import (BillingService, CashierService, CompanyService, DashboardService, GuestService,
-                         InvoiceService, PricingService, PrivacyService, ReservationService, RoomService)
+                         InvoiceService, PricingService, PrivacyService, ReservationService, RoomService,
+                         WaitlistService)
 from ..router import Controller, delete, get, post, put
 from ..router import delete as delete_route  # for classes that have a method called delete
 
@@ -273,6 +274,33 @@ class RoomController(Controller):
     @delete("/rate-plans/{plan_id}", perm=Perm.ROOMS_MANAGE)
     def delete_rate_plan(self, plan_id):
         self.svc(PricingService).delete_rate_plan(plan_id)
+
+
+class WaitlistController(Controller):
+    @get("/waitlist", perm=Perm.RESERVATIONS_VIEW)
+    def list(self):
+        return self.svc(WaitlistService).list(self.q("status", "waiting"))
+
+    @post("/waitlist", perm=Perm.RESERVATIONS_MANAGE)
+    def add(self):
+        return self.svc(WaitlistService).add(self.body)
+
+    @post("/waitlist/{entry_id}/close", perm=Perm.RESERVATIONS_MANAGE)
+    def close(self, entry_id):
+        res_id = self.body.get("reservation_id")
+        return self.svc(WaitlistService).close(entry_id, self.body.get("status"), int(res_id) if str(res_id or "").isdigit() else None)
+
+    @get("/stop-sells", perm=Perm.ROOMS_VIEW)
+    def stop_sells(self):
+        return self.svc(WaitlistService).stop_sells()
+
+    @post("/stop-sells", perm=Perm.ROOMS_MANAGE)
+    def add_stop_sell(self):
+        return self.svc(WaitlistService).add_stop_sell(self.body)
+
+    @delete_route("/stop-sells/{stop_id}", perm=Perm.ROOMS_MANAGE)
+    def delete_stop_sell(self, stop_id):
+        self.svc(WaitlistService).delete_stop_sell(stop_id)
 
 
 class CashierController(Controller):

@@ -69,13 +69,16 @@ async function route() {
 }
 
 async function bookingsView(el) {
-  const list = await GET('/portal/reservations');
+  const [list, waiting] = await Promise.all([GET('/portal/reservations'), GET('/portal/waitlist').catch(() => [])]);
   el.innerHTML = `<h1>${t('myBookings')}</h1><p class="muted">${esc(me.user.full_name)}</p>
     ${list.length ? `<div class="booking-list">${list.map((r) => `<a class="booking card" href="#/stay/${r.id}">
       <div><b>${esc(r.room_type)}</b>${r.room_number ? ` · ${t('roomNo')} ${esc(r.room_number)}` : ''}<div class="small muted">${esc(r.code)} · ${planLine(r)}</div></div>
       <div>${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}<div class="small muted">${r.nights} ${t('nights')}</div></div>
       <div>${badge(r.status)}</div><div class="right"><b>${money(r.total)}</b>${r.balance > 0.004 ? `<div class="small text-bad">${t('balance')} ${money(r.balance)}</div>` : ''}</div></a>`).join('')}</div>`
-    : `<div class="card card-body center"><p>${t('noBookings')}</p><a class="btn primary" href="/">${t('bookAnother')}</a></div>`}`;
+    : `<div class="card card-body center"><p>${t('noBookings')}</p><a class="btn primary" href="/">${t('bookAnother')}</a></div>`}
+    ${waiting.length ? `<h2 style="margin-top:24px">${t('waitlistTitle')}</h2><div class="card card-body" id="my-waitlist">${waiting.map((w) => `<div class="line-item">
+      <span>${fmtDate(w.check_in)} → ${fmtDate(w.check_out)} · ${esc(w.room_type || t('anyRoom'))}</span><button class="btn sm" data-leave="${w.id}">${t('leaveWaitlist')}</button></div>`).join('')}</div>` : ''}`;
+  $$('[data-leave]', el).forEach((b) => b.addEventListener('click', async () => { if (await guarded(() => DEL('/portal/waitlist/' + b.dataset.leave), '✓')) route(); }));
 }
 
 async function stayView(el, id) {

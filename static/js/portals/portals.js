@@ -11,14 +11,14 @@ const PORTALS = {
   // Administrator: the whole hotel, plus users, roles, settings and the audit log.
   admin: {
     title: 'Administration', allow: (u) => u.role === 'admin', topAction: booking,
-    keys: ['dashboard', 'calendar', 'reservations', 'guests', 'cashier', 'companies', 'invoices', '|',
+    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'menu', 'lost-found', 'reviews', '|',
       'rooms', 'inventory', 'reports', 'night-audit', '|', 'users', 'roles', 'settings', 'audit'],
   },
   // Manager: every department, rates, reports, the audit log and closing the day — but not users, roles or settings.
   manager: {
     title: 'Management', allow: (u) => u.role === 'admin' || u.role === 'manager', topAction: booking,
-    keys: ['dashboard', 'calendar', 'reservations', 'guests', 'cashier', 'companies', 'invoices', '|',
+    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'menu', 'lost-found', 'reviews', '|',
       'rooms', 'inventory', 'reports', 'night-audit', 'audit'],
   },
@@ -43,7 +43,7 @@ const PORTALS = {
   // Front desk: reservations, guests, billing and guest services.
   staff: {
     title: 'Front desk', allow: (u) => has(u, 'dashboard.view'), topAction: booking,
-    keys: ['dashboard', 'calendar', 'reservations', 'guests', 'cashier', 'companies', 'invoices', '|',
+    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'lost-found', 'reviews', '|', 'rooms', 'inventory', 'supplies', 'reports'],
   },
   // Chef: kitchen order board, menu & recipes, kitchen stock and supply requests.
