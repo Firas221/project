@@ -7,6 +7,7 @@ export const DICT = {
   "% of rooms sold each night · hover for details": "نسبة الغرف المباعة كل ليلة · مرّر المؤشر للتفاصيل",
   "'From' must be before 'To'": "يجب أن يكون «من» قبل «إلى»",
   "'Valid to' must be after 'valid from'": "يجب أن يكون «صالح حتى» بعد «صالح من»",
+  "(kept apart from the drawer count)": "(يُحفظ منفصلًا عن جرد الدرج)",
   "(low)": "(منخفض)",
   "(not charged)": "(غير محتسب)",
   "+ Add photos": "+ إضافة صور",
@@ -386,6 +387,7 @@ export const DICT = {
   "Every sign-in, change and security event, with user and IP address.": "كل تسجيل دخول وتغيير وحدث أمني، مع المستخدم وعنوان IP.",
   "Everyone has to sign in again.": "على الجميع تسجيل الدخول مرة أخرى.",
   "Everything entered after this backup was made will be replaced: reservations, payments, stock and users. The current data is saved as a new backup first, so you can go back.": "سيُستبدل كل ما أُدخل بعد إنشاء هذه النسخة: الحجوزات والمدفوعات والمخزون والمستخدمون. تُحفظ البيانات الحالية أولًا كنسخة احتياطية جديدة حتى يمكنك التراجع.",
+  "Exchange rate: 1 unit of the second currency =": "سعر الصرف: وحدة واحدة من العملة الثانية =",
   "excl. service & VAT": "غير شامل الخدمة والضريبة",
   "Existing guest": "نزيل مسجَّل",
   "Expected": "المتوقع",
@@ -417,6 +419,7 @@ export const DICT = {
   "Folio": "كشف الحساب",
   "Food & Beverage": "الأغذية والمشروبات",
   "for good? Work they recorded stays, without their name. To keep the account but block sign-in, edit the user and untick “Account active” instead.": "نهائيًا؟ يبقى ما سجّله من أعمال دون اسمه. للإبقاء على الحساب مع منع الدخول، عدّل المستخدم وأزل علامة «الحساب نشط».",
+  "Foreign cash taken": "النقد الأجنبي المحصّل",
   "Found": "تاريخ العثور",
   "Found by": "عثر عليه",
   "Found item": "غرض معثور عليه",
@@ -1037,6 +1040,7 @@ export const DICT = {
   "Season saved": "تم حفظ الموسم",
   "Seasons": "المواسم",
   "Seasons & promotions": "المواسم والعروض",
+  "Second currency (e.g. USD; empty for none)": "العملة الثانية (مثل USD؛ اتركه فارغًا إن لم توجد)",
   "Security": "الأمان",
   "Security token missing or invalid. Reload the page and try again.": "رمز الأمان مفقود أو غير صالح. أعد تحميل الصفحة وحاول مرة أخرى.",
   "Security…": "الأمان…",
@@ -1334,6 +1338,7 @@ export const DICT = {
 // Phrases that contain a name, number or date. $1, $2 … are the captured parts as they are;
 // {$1} means that part is itself looked up (for example a role name inside "Save Chef / kitchen").
 export const PATTERNS = [
+  ["^Payments in (\\S+) are not accepted$", "الدفع بعملة $1 غير مقبول"],
   ["^Redeem points \\((\\d+)\\)$", "استبدال النقاط ($1)"],
   ["^The guest has only (\\d+) points$", "لدى النزيل $1 نقطة فقط"],
   ["^Loyalty points redeemed \\((\\d+) points\\)$", "استبدال نقاط الولاء ($1 نقطة)"],

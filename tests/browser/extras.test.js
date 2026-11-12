@@ -186,3 +186,41 @@ test('loyalty: a manager adds points, the desk redeems them on a bill, the guest
   assert.match(await guest.page.locator('#my-points').innerText(), /worth 50\.00 EGP[\s\S]*Welcome gift/);
   await guest.context.close();
 });
+
+test('second currency: prices are shown in it on the website and the desk takes a payment in it', async () => {
+  const { day } = require('./support');
+  const admin = await open();
+  await signIn(admin.page, 'admin');
+  await admin.page.goto(hotel.base + '/admin#/settings');
+  await admin.page.waitForSelector('input[name=second_currency]');
+  await admin.page.fill('input[name=second_currency]', 'usd');
+  await admin.page.fill('input[name=exchange_rate]', '50');
+  await admin.page.click('#f button.primary');
+  await admin.page.waitForSelector('.toast.success');
+  const res = await api(admin.page, 'POST', '/reservations', { guest: { first_name: 'Dollar', last_name: 'Payer' },
+    room_type_id: (await api(admin.page, 'GET', '/room-types'))[1].id, check_in: day(280), check_out: day(282) });
+  await admin.context.close();
+
+  const site = await open();
+  await site.page.goto(hotel.base + '/');
+  await site.page.waitForSelector('.room-card .price');
+  assert.match(await site.page.locator('.room-card .price').first().innerText(), /≈ 44\.00 USD/);        // 2,200 EGP at 50
+  await site.context.close();
+
+  const desk = await open();
+  await signIn(desk.page, 'frontdesk');
+  await desk.page.goto(`${hotel.base}/staff#/reservations/${res.id}`);
+  await desk.page.waitForSelector('#a-pay');
+  await desk.page.click('#a-pay');
+  await desk.page.waitForSelector('.modal select[name=currency]');
+  const due = +(await desk.page.inputValue('.modal input[name=amount]'));
+  await desk.page.selectOption('.modal select[name=currency]', 'USD');
+  assert.equal(+(await desk.page.inputValue('.modal input[name=amount]')), +(due / 50).toFixed(2));    // what to ask the guest for
+  await desk.page.fill('.modal input[name=amount]', '100');
+  await desk.page.click('.modal button[type=submit]');
+  await desk.page.waitForSelector('[data-paid-as]');
+  assert.match(await desk.page.locator('[data-paid-as]').innerText(), /100\.00 USD @ 50/);
+  assert.match((await desk.page.locator('#view').innerText()).replace(/,/g, ''), /5000\.00 EGP/);
+  assert.deepEqual(desk.problems, []);
+  await desk.context.close();
+});

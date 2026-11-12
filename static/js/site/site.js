@@ -1,6 +1,6 @@
 // Public hotel website: room types, live availability & pricing, online booking, reviews.
 import { GET, POST, loadSession } from '../core/api.js';
-import { $, $$, addDays, configure, esc, fmtDate, modal, money, settings, todayISO, toast } from '../core/ui.js';
+import { $, $$, addDays, configure, esc, fmtDate, modal, money, second, settings, todayISO, toast } from '../core/ui.js';
 import { getLang, otherLang, t, toggleLang } from './i18n.js';
 import { startTranslator } from '../core/i18n.js';
 
@@ -43,7 +43,7 @@ async function init() {
         ${roomImage(r)}<div class="room-body"><h3>${esc(r.name)}</h3><p>${esc(r.description)}</p>
         <div class="small muted">${esc(r.bed_type)} · ${r.size_sqm ? r.size_sqm + ' m² · ' : ''}${t('upTo')} ${r.capacity} ${t('guests')}</div>
         <div class="amen">${r.amenities.split(',').map((a) => `<span>${esc(a.trim())}</span>`).join('')}</div>
-        <div class="price">${t('from')} <b>${money(r.base_rate)}</b> ${t('perNight')}</div></div></article>`).join('')}</div>
+        <div class="price">${t('from')} <b>${money(r.base_rate)}</b> ${t('perNight')} <span class="small muted">${esc(second(r.base_rate))}</span></div></div></article>`).join('')}</div>
         <p class="small muted">${t('taxesNote', { sc: s.service_charge_rate, vat: s.vat_rate })} ${t('policy', { d: s.free_cancellation_days })}</p></section>
       <section id="reviews"><h2>${t('guestReviews')}${reviews.summary.average ? ` · ${reviews.summary.average} ★` : ''}</h2><div class="review-grid">
         ${reviews.reviews.map((r) => `<blockquote class="review"><div class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div><p>“${esc(r.comment)}”</p>
@@ -96,7 +96,7 @@ async function search(q) {
           <input type="radio" name="plan-${o.id}" value="${p.id}" ${n === 0 ? 'checked' : ''} data-total="${withTax(p.quote.total)}" data-avg="${p.quote.average_rate}">
           <span><b>${esc(p.id === '' ? p.name : planName(p))}</b><br><span class="small muted">${t(p.meal_plan)} · ${p.refundable ? t('flexible') : `<span class="text-bad">${t('nonRefundable')}</span>`}</span></span>
           <span class="rate-price">${money(withTax(p.quote.total))}</span></label>`).join('')}</fieldset>` : ''}</div>
-      <div class="offer-price"><div class="big-price" data-price>${money(withTax(o.quote.total))}</div><div class="small muted">${o.quote.nights} ${t('nights')} · ${t('inclTaxes')}</div>
+      <div class="offer-price"><div class="big-price" data-price>${money(withTax(o.quote.total))}</div><div class="small muted" data-second>${esc(second(withTax(o.quote.total)))}</div><div class="small muted">${o.quote.nights} ${t('nights')} · ${t('inclTaxes')}</div>
       <div class="small muted"><span data-avg>${money(o.quote.average_rate)}</span> ${t('avgRate')}</div>${o.rooms_left <= 3 ? `<div class="small text-bad">${o.rooms_left} ${t('left')}</div>` : ''}
       <button class="btn primary" data-book="${o.id}" ${o.quote.meets_min_stay ? '' : 'disabled'}>${t('book')}</button></div></article>`).join('')}</div>`
     : `<div class="notice warn">${t('noRooms')}</div>
@@ -112,6 +112,7 @@ async function search(q) {
   $$('.rate-opt input', box).forEach((radio) => radio.addEventListener('change', () => {
     const card = radio.closest('.offer');
     $('[data-price]', card).textContent = money(+radio.dataset.total);
+    $('[data-second]', card).textContent = second(+radio.dataset.total);
     $('[data-avg]', card).textContent = money(+radio.dataset.avg);
   }));
   $$('[data-book]', box).forEach((b) => b.addEventListener('click', () => {
@@ -142,7 +143,7 @@ async function confirmBooking(offer, q, plan = null) {
       <dt>${t('departure')}</dt><dd>${fmtDate(q.check_out)} (${q2.nights} ${t('nights')})</dd><dt>${t('guests')}</dt><dd>${q.adults} + ${q.children}${+q.infants ? ` · ${t('infantsFree', { n: +q.infants })}` : ''}${q2.extra_beds ? ` · ${t('extraBed', { n: q2.extra_beds })}` : ''}</dd>
       <dt>${t('subtotal')}</dt><dd>${money(q2.total)}${q2.discount ? ` <span class="small muted">(−${money(q2.discount)})</span>` : ''}</dd>
       <dt>${t('service')} ${sc}%</dt><dd>${money(service)}</dd><dt>${t('vat')} ${vat}%</dt><dd>${money(tax)}</dd>
-      <dt><b>${t('total')}</b></dt><dd><b>${money(q2.total + service + tax)}</b></dd></dl>
+      <dt><b>${t('total')}</b></dt><dd><b>${money(q2.total + service + tax)}</b> <span class="small muted">${esc(second(q2.total + service + tax))}</span></dd></dl>
       <label class="field" style="margin-top:12px"><span>${t('specialRequests')}</span><textarea name="special_requests" maxlength="1000"></textarea></label>
       <p class="small muted">${plan && !plan.refundable ? t('nonRefundable') + '.' : t('policy', { d: settings.free_cancellation_days })} ${t('payAtHotel')}</p>`,
     onSubmit: (v) => POST('/portal/reservations', { ...q, room_type_id: offer.id, rate_plan_id: plan ? plan.id : null, special_requests: v.special_requests }),

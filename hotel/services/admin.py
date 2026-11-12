@@ -30,6 +30,8 @@ class SettingsSchema(Schema):
     phone = Str(max_len=60)
     email = Email()
     currency = Str(max_len=8, required=True)
+    second_currency = Str(max_len=8, upper=True, pattern=r"[A-Za-z]*")
+    exchange_rate = Number(min_value=0, max_value=1_000_000, places=4)
     service_charge_rate = Number(min_value=0, max_value=30)
     vat_rate = Number(min_value=0, max_value=30)
     city_tax_rate = Number(min_value=0, max_value=20)
@@ -185,7 +187,7 @@ class SettingsService(Service):
     PUBLIC_KEYS = ("hotel_name", "hotel_name_ar", "tagline", "address", "phone", "email", "currency",
                    "service_charge_rate", "vat_rate", "city_tax_rate", "check_in_time", "check_out_time",
                    "online_booking_enabled", "free_cancellation_days", "max_online_nights", "tax_registration_number",
-                   "child_free_age", "loyalty_enabled", "loyalty_point_value")
+                   "child_free_age", "loyalty_enabled", "loyalty_point_value", "second_currency", "exchange_rate")
 
     def public(self) -> dict:
         s = self.settings()

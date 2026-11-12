@@ -68,7 +68,9 @@ class ShiftRepository(BaseRepository):
     columns = ("user_id", "closed_at", "opening_float", "expected_cash", "counted_cash", "variance", "notes")
     select_sql = (
         "SELECT t.*, u.full_name AS user_name,"
-        " ROUND(COALESCE((SELECT SUM(amount) FROM payments p WHERE p.shift_id = t.id AND p.method='cash'),0),2) AS cash_taken,"
+        " ROUND(COALESCE((SELECT SUM(amount) FROM payments p WHERE p.shift_id = t.id AND p.method='cash' AND p.currency=''),0),2) AS cash_taken,"
+        " ROUND(COALESCE((SELECT SUM(foreign_amount) FROM payments p WHERE p.shift_id = t.id AND p.method='cash' AND p.currency<>''),0),2) AS foreign_cash_taken,"
+        " (SELECT MAX(currency) FROM payments p WHERE p.shift_id = t.id AND p.method='cash' AND p.currency<>'') AS foreign_currency,"
         " ROUND(COALESCE((SELECT SUM(amount) FROM payments p WHERE p.shift_id = t.id),0),2) AS total_taken,"
         " (SELECT COUNT(*) FROM payments p WHERE p.shift_id = t.id) AS payment_count"
         " FROM cashier_shifts t JOIN users u ON u.id = t.user_id"

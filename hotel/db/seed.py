@@ -18,6 +18,8 @@ DEFAULT_SETTINGS = {
     "email": "frontdesk@nileharbor.example",
     # Egyptian tax & legal (Law 67/2016 VAT; hotel service charge)
     "currency": "EGP",
+    "second_currency": "",          # e.g. USD: prices are also shown in it and payments can be taken in it
+    "exchange_rate": "0",           # how much of the hotel's currency one unit of the second currency buys
     "service_charge_rate": "12",
     "vat_rate": "14",
     "city_tax_rate": "0",

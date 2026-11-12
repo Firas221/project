@@ -15,7 +15,8 @@ export async function cashierView(el, { ctx, alive }) {
   el.innerHTML = `<div class="page-head"><div class="grow"><h1>Cashier</h1><div class="sub">Open a shift with a cash float before taking cash; close it with a cash count.</div></div></div>
     <div class="grid g2"><div class="card"><div class="card-head"><h2 class="grow">My shift</h2>${cur ? badge('in_progress', 'Open') : badge('closed', 'No open shift')}</div><div class="card-body">
       ${cur ? `<dl class="kv"><dt>Opened</dt><dd>${fmtDateTime(cur.opened_at)}</dd><dt>Opening float</dt><dd>${money(cur.opening_float)}</dd>
-        <dt>Cash taken</dt><dd>${money(cur.cash_taken)}</dd><dt>All payments</dt><dd>${money(cur.total_taken)} (${cur.payment_count})</dd>
+        <dt>Cash taken</dt><dd>${money(cur.cash_taken)}</dd>
+        ${cur.foreign_cash_taken ? `<dt>Foreign cash taken</dt><dd id="foreign-cash">${cur.foreign_cash_taken.toFixed(2)} ${esc(cur.foreign_currency)} <span class="small muted">(kept apart from the drawer count)</span></dd>` : ''}<dt>All payments</dt><dd>${money(cur.total_taken)} (${cur.payment_count})</dd>
         <dt>Expected in drawer</dt><dd><b>${money(cur.opening_float + cur.cash_taken)}</b></dd></dl><button class="btn primary" id="close" style="margin-top:12px">Close shift &amp; count cash</button>`
         : '<button class="btn primary" id="open">Open shift</button>'}</div></div>
       <div class="card"><div class="card-head"><h2>Recent shifts</h2></div>${table(['Cashier', 'Opened', 'Closed', ['Expected', 'num'], ['Counted', 'num'], ['Variance', 'num']],
@@ -35,7 +36,7 @@ export async function cashierView(el, { ctx, alive }) {
   on(el, '[data-shift]', 'click', async (e, tr) => {
     const s = await GET('/cashier/shifts/' + tr.dataset.shift);
     modal({ title: `Shift of ${s.user_name}`, wide: true, cancel: 'Close', body: table(['Time', 'Reservation', 'Method', 'Reference', ['Amount', 'num']],
-      s.payments.map((p) => `<tr><td class="small">${fmtDateTime(p.created_at)}</td><td>${esc(p.reservation_code)}</td><td>${esc(METHODS[p.method])}</td><td>${esc(p.reference)}</td><td class="num">${money(p.amount)}</td></tr>`).join(''), 'No payments in this shift') });
+      s.payments.map((p) => `<tr><td class="small">${fmtDateTime(p.created_at)}</td><td>${esc(p.reservation_code)}</td><td>${esc(METHODS[p.method])}</td><td>${esc(p.reference)}</td><td class="num">${money(p.amount)}${p.currency ? `<div class="small muted">${p.foreign_amount.toFixed(2)} ${esc(p.currency)}</div>` : ''}</td></tr>`).join(''), 'No payments in this shift') });
   });
 }
 

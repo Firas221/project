@@ -2,7 +2,7 @@
 import { DEL, GET, POST, PUT, qs } from '../core/api.js';
 import {
   $, $$, PAGE_SIZE, addDays, badge, bindPager, bindRowLinks, check, confirmBox, emptyRow, esc, field, fmtDate, fmtDateTime,
-  guarded, label, mealLabel, modal, money, nightsBetween, on, options, pager, qty, selectField, settings, table, textField, tile,
+  guarded, label, mealLabel, modal, money, nightsBetween, on, options, pager, qty, second, selectField, settings, table, textField, tile,
   toast, todayISO, vip,
 } from '../core/ui.js';
 
@@ -383,7 +383,7 @@ export async function reservationView(el, { args, ctx, alive }) {
         <div class="card"><div class="card-head"><h2 class="grow">Payments</h2></div>
           ${table(['Date', 'Method', 'Reference', 'By', ['Amount', 'num'], ''], f.payments.map((p) => `<tr><td class="nowrap">${fmtDateTime(p.created_at)}</td>
             <td>${esc(METHODS[p.method] || p.method)}</td><td>${esc(p.reference)}</td><td>${esc(p.created_by_name || '')}</td>
-            <td class="num ${p.amount < 0 ? 'text-bad' : ''}">${money(p.amount)}</td>
+            <td class="num ${p.amount < 0 ? 'text-bad' : ''}">${money(p.amount)}${p.currency ? `<div class="small muted" data-paid-as>${p.foreign_amount.toFixed(2)} ${esc(p.currency)} @ ${p.fx_rate}</div>` : ''}</td>
             <td class="actions">${can('billing.void') && r.status !== 'checked_out' ? `<button class="btn sm ghost danger" data-voidpay="${p.id}">✕</button>` : ''}</td></tr>`).join(''), 'No payments yet')}</div>
         ${r.orders.length ? `<div class="card"><div class="card-head"><h2>Room service</h2></div>${table(['Order', 'Status', 'Placed', ['Total', 'num']],
           r.orders.map((o) => `<tr><td>${esc(o.code)}</td><td>${badge(o.status)}</td><td>${fmtDateTime(o.created_at)}</td><td class="num">${money(o.total)}</td></tr>`).join(''))}</div>` : ''}
@@ -563,8 +563,21 @@ async function addPayment(r, ctx) {
   const ok = await modal({
     title: 'Record payment — ' + r.code, submit: 'Record payment',
     body: `<div class="form-grid">${field('Amount', 'amount', r.folio.balance > 0 ? r.folio.balance.toFixed(2) : '', 'type="number" step="0.01"')}
-      ${selectField('Method', 'method', Object.entries(METHODS), 'card')}${field('Reference', 'reference', '', 'placeholder="Receipt / POS no."', 'full')}
-      <div class="full small muted">Balance due ${money(r.folio.balance)}. Supervisors can enter a negative amount for a refund. Cash requires an open cashier shift.</div></div>`,
+      ${selectField('Method', 'method', Object.entries(METHODS), 'card')}
+      ${settings.second_currency && +settings.exchange_rate > 0 ? selectField('Currency', 'currency', [['', settings.currency], [settings.second_currency, `${settings.second_currency} (1 = ${money(+settings.exchange_rate)})`]], '') : ''}
+      ${field('Reference', 'reference', '', 'placeholder="Receipt / POS no."', 'full')}
+      <div class="full small muted">Balance due ${money(r.folio.balance)}. Supervisors can enter a negative amount for a refund. Cash requires an open cashier shift.</div>
+      <div class="full small" id="fx-note">${esc(second(r.folio.balance))}</div></div>`,
+    onOpen: (m) => {
+      const form = $('form', m);
+      if (!form.currency) return;
+      // switching currency converts the suggested amount, so the desk sees what to ask the guest for
+      form.currency.addEventListener('change', () => {
+        const rate = +settings.exchange_rate;
+        const due = r.folio.balance > 0 ? r.folio.balance : 0;
+        form.amount.value = due ? (form.currency.value ? due / rate : due).toFixed(2) : '';
+      });
+    },
     onSubmit: (v) => POST(`/reservations/${r.id}/payments`, v),
   });
   if (ok) { toast('Payment recorded', 'success'); ctx.refresh(); }

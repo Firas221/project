@@ -106,3 +106,54 @@ class LoyaltyTests(AppTestCase):
         loyalty = admin.ok("GET", f"/api/guests/{g['id']}")["loyalty"]
         self.assertEqual((loyalty["points"], loyalty["history"]), (0, []))
         self.assertEqual(manager.req("POST", f"/api/guests/{g['id']}/points", {"points": 5, "reason": "x"})[0], 409)
+
+
+class SecondCurrencyTests(AppTestCase):
+    def setUp(self):
+        super().setUp()
+        self.admin = self.client("admin")
+        self.admin.ok("PUT", "/api/settings", {"second_currency": "usd", "exchange_rate": 50})
+
+    def test_setting_is_public_and_validated(self):
+        s = self.client().ok("GET", "/api/public/info")["settings"]
+        self.assertEqual((s["second_currency"], s["exchange_rate"]), ("USD", "50"))
+        self.assertEqual(self.admin.req("PUT", "/api/settings", {"second_currency": "U$D"})[0], 400)
+        self.assertEqual(self.admin.req("PUT", "/api/settings", {"exchange_rate": -1})[0], 400)
+
+    def test_payment_in_the_second_currency_is_booked_at_the_rate(self):
+        desk = self.client("frontdesk")
+        res = self.book(desk, 15, 17)
+        before = desk.ok("GET", f"/api/reservations/{res['id']}")["folio"]["balance"]
+        out = desk.ok("POST", f"/api/reservations/{res['id']}/payments", {"amount": 100, "method": "card", "currency": "USD"})
+        paid = out["folio"]["payments"][-1]
+        self.assertEqual((paid["amount"], paid["currency"], paid["foreign_amount"], paid["fx_rate"]), (5000, "USD", 100, 50))
+        self.assertAlmostEqual(out["folio"]["balance"], before - 5000, places=2)
+        # the hotel's own currency, named or not, is taken as is
+        desk.ok("POST", f"/api/reservations/{res['id']}/payments", {"amount": 200, "method": "card", "currency": "EGP"})
+        desk.ok("POST", f"/api/reservations/{res['id']}/payments", {"amount": 300, "method": "card"})
+        last_two = desk.ok("GET", f"/api/reservations/{res['id']}")["folio"]["payments"][-2:]
+        self.assertEqual([(p["amount"], p["currency"]) for p in last_two], [(200, ""), (300, "")])
+        self.assertEqual(desk.req("POST", f"/api/reservations/{res['id']}/payments", {"amount": 10, "method": "card", "currency": "EUR"})[0], 400)
+        # the rate is fixed on the payment: changing it later does not rewrite history
+        self.admin.ok("PUT", "/api/settings", {"exchange_rate": 60})
+        again = desk.ok("GET", f"/api/reservations/{res['id']}")["folio"]["payments"]
+        self.assertEqual((again[0]["amount"], again[0]["fx_rate"]), (5000, 50))
+        self.assertTrue(any("100.00 USD @ 50" in a["details"] for a in self.admin.ok("GET", "/api/audit")))
+
+    def test_foreign_cash_is_kept_out_of_the_drawer_count(self):
+        desk = self.client("frontdesk")
+        res = self.book(desk, 18, 20)
+        desk.ok("POST", "/api/cashier/open", {"opening_float": 1000})
+        desk.ok("POST", f"/api/reservations/{res['id']}/payments", {"amount": 400, "method": "cash"})
+        desk.ok("POST", f"/api/reservations/{res['id']}/payments", {"amount": 20, "method": "cash", "currency": "USD"})
+        shift = desk.ok("GET", "/api/cashier/shifts")["current"]
+        self.assertEqual((shift["cash_taken"], shift["foreign_cash_taken"], shift["foreign_currency"]), (400, 20, "USD"))
+        self.assertEqual(shift["total_taken"], 400 + 20 * 50)
+        closed = desk.ok("POST", "/api/cashier/close", {"counted_cash": 1400})
+        self.assertEqual((closed["expected_cash"], closed["variance"]), (1400, 0))       # the dollars are not counted as pounds
+
+    def test_without_a_second_currency_foreign_payments_are_refused(self):
+        self.admin.ok("PUT", "/api/settings", {"second_currency": "", "exchange_rate": 0})
+        desk = self.client("frontdesk")
+        res = self.book(desk, 21, 23)
+        self.assertEqual(desk.req("POST", f"/api/reservations/{res['id']}/payments", {"amount": 10, "method": "card", "currency": "USD"})[0], 400)

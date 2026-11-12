@@ -98,7 +98,8 @@ export async function settingsView(el, { ctx, alive }) {
         ${field('Tagline', 'tagline', s.tagline, '', 'full')}${field('Address', 'address', s.address, '', 'full')}${field('Phone', 'phone', s.phone)}${field('E-mail', 'email', s.email)}
         ${field('Check-in time', 'check_in_time', s.check_in_time, 'type="time"')}${field('Check-out time', 'check_out_time', s.check_out_time, 'type="time"')}</div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Tax &amp; legal (Egypt)</h2></div><div class="card-body form-grid">
-        ${field('Currency', 'currency', s.currency)}${field('Service charge %', 'service_charge_rate', s.service_charge_rate, 'type="number" step="0.01"')}
+        ${field('Currency', 'currency', s.currency)}${field('Second currency (e.g. USD; empty for none)', 'second_currency', s.second_currency || '', 'style="text-transform:uppercase" maxlength="8"')}
+        ${field('Exchange rate: 1 unit of the second currency =', 'exchange_rate', s.exchange_rate || '', 'type="number" step="0.0001" min="0"')}${field('Service charge %', 'service_charge_rate', s.service_charge_rate, 'type="number" step="0.01"')}
         ${field('VAT %', 'vat_rate', s.vat_rate, 'type="number" step="0.01"')}${field('City / municipality tax %', 'city_tax_rate', s.city_tax_rate, 'type="number" step="0.01"')}
         ${field('Tax registration number', 'tax_registration_number', s.tax_registration_number)}${field('Commercial register no.', 'commercial_register', s.commercial_register)}
         ${field('Tourism licence no.', 'tourism_license', s.tourism_license)}${check('Require nationality & ID before check-in', 'require_id_at_checkin', s.require_id_at_checkin === '1')}</div></div>

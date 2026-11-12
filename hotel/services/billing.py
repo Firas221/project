@@ -9,6 +9,15 @@ from ..core.validation import Email, Int, Money, Number, Schema, Str
 from .base import Service
 
 PAYMENT_METHODS = ("cash", "card", "bank_transfer", "other")
+
+
+def second_currency_rate(settings: dict) -> float:
+    """How many units of the hotel's currency one unit of the second currency is worth; 0 when there is none."""
+    try:
+        rate = float(settings.get("exchange_rate") or 0)
+    except ValueError:
+        rate = 0.0
+    return rate if (settings.get("second_currency") or "").strip() and rate > 0 else 0.0
 OPEN_FOLIO = ("booked", "checked_in")
 
 
@@ -24,6 +33,7 @@ class PaymentSchema(Schema):
     amount = Number(required=True, min_value=-10_000_000, max_value=10_000_000, places=2)
     method = Str(required=True, choices=PAYMENT_METHODS)
     reference = Str(max_len=120)
+    currency = Str(max_len=8, upper=True)        # empty or the hotel's own currency: amount is in it
 
 
 class CompanySchema(Schema):
@@ -148,6 +158,15 @@ class BillingService(Service):
         v = PaymentSchema.validate(data)
         if v["amount"] == 0:
             raise ValidationError("Amount cannot be zero")
+        foreign = {"currency": "", "fx_rate": 0, "foreign_amount": 0}
+        s = self.settings()
+        if v["currency"] and v["currency"] != (s.get("currency") or "").upper():
+            # paid in the second currency: book it in the hotel's currency at today's rate, remember both
+            rate = second_currency_rate(s)
+            if v["currency"] != (s.get("second_currency") or "").upper() or not rate:
+                raise ValidationError(f"Payments in {v['currency']} are not accepted", field="currency")
+            foreign = {"currency": v["currency"], "fx_rate": rate, "foreign_amount": v["amount"]}
+            v["amount"] = money(v["amount"] * rate)
         if v["amount"] < 0:
             if not self.actor.can(Perm.BILLING_VOID):
                 raise ValidationError("Only supervisors can issue refunds")
@@ -157,9 +176,11 @@ class BillingService(Service):
         if v["method"] == "cash" and not shift and self.settings().get("cash_requires_shift") == "1":
             raise Conflict("Open a cashier shift before taking cash")
         self.repos.payments.insert(reservation_id=res["id"], amount=v["amount"], method=v["method"],
-                                   reference=v["reference"], created_by=self.actor_id, shift_id=shift["id"] if shift else None)
+                                   reference=v["reference"], created_by=self.actor_id, shift_id=shift["id"] if shift else None,
+                                   **foreign)
+        paid_as = f" ({foreign['foreign_amount']:.2f} {foreign['currency']} @ {foreign['fx_rate']:g})" if foreign["currency"] else ""
         self.audit("payment" if v["amount"] > 0 else "refund", "reservation", res["id"],
-                   f"{res['code']}: {v['amount']:.2f} {v['method']}")
+                   f"{res['code']}: {v['amount']:.2f} {v['method']}{paid_as}")
 
     def void_payment(self, reservation_id: int, payment_id: int) -> None:
         self.require(Perm.BILLING_VOID)

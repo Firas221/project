@@ -33,6 +33,12 @@ export function money(v) {
   const n = Number(v || 0);
   return `${n < 0 ? '-' : ''}${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${settings.currency || ''}`.trim();
 }
+/** "≈ 146.00 USD" when the hotel has a second currency and a rate, otherwise ''. */
+export function second(v) {
+  const rate = Number(settings.exchange_rate || 0);
+  if (!settings.second_currency || !(rate > 0)) return '';
+  return `≈ ${(Number(v || 0) / rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${settings.second_currency}`;
+}
 export const qty = (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 3 });
 export const label = (s) => String(s || '').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 

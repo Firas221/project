@@ -142,7 +142,8 @@ class ChargeRepository(BaseRepository):
 
 class PaymentRepository(BaseRepository):
     table = "payments"
-    columns = ("reservation_id", "amount", "method", "reference", "created_by", "shift_id")
+    columns = ("reservation_id", "amount", "method", "reference", "created_by", "shift_id", "currency", "fx_rate",
+               "foreign_amount")
     select_sql = ("SELECT t.*, u.full_name AS created_by_name FROM payments t LEFT JOIN users u ON u.id = t.created_by")
     default_order = "t.created_at, t.id"
     entity_label = "Payment"
