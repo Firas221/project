@@ -70,6 +70,11 @@ export async function guestView(el, { args, ctx, alive }) {
         <dt>Language for e-mails</dt><dd>${g.language === 'ar' ? 'العربية' : 'English'}</dd>
         <dt>Privacy notice</dt><dd>${g.privacy_accepted_at ? 'Accepted ' + fmtDate(g.privacy_accepted_at) : '—'}</dd>
         <dt>Marketing</dt><dd>${g.marketing_consent ? 'Consented' : 'No consent'}</dd><dt>Notes</dt><dd class="pre">${esc(g.notes) || '—'}</dd></dl></div>
+        ${g.loyalty.enabled ? `<div class="card-head"><h2 class="grow">Loyalty</h2>${ctx.can('billing.void') && !erased ? '<button class="btn sm" id="adjust-points">Adjust points</button>' : ''}</div>
+        <div class="card-body" id="loyalty"><div><b class="big-number">${g.loyalty.points}</b> points · worth ${money(g.loyalty.value)} · ${badge('info', g.loyalty.tier)}</div>
+          ${g.loyalty.next_tier ? `<div class="small muted">${g.loyalty.next_tier.points_needed} more points from stays to reach ${esc(g.loyalty.next_tier.name)}</div>` : ''}
+          ${g.loyalty.history.slice(0, 8).map((h) => `<div class="line-item"><span>${esc(h.reason)}<br><span class="small muted">${fmtDateTime(h.created_at)}${h.created_by_name ? ' · ' + esc(h.created_by_name) : ''}</span></span>
+            <b class="${h.points < 0 ? 'text-bad' : 'text-good'}">${h.points > 0 ? '+' : ''}${h.points}</b></div>`).join('')}</div>` : ''}
         <div class="card-head"><h2 class="grow">ID documents</h2>${ctx.can('guests.manage') && !erased ? '<button class="btn sm" id="add-doc">+ Add scan</button>' : ''}</div>
         <div class="card-body" id="docs">${g.documents.map((doc) => `<div class="line-item"><a href="/api/guests/${g.id}/documents/${doc.id}" target="_blank" rel="noopener">
             ${esc(ID_TYPES.find(([k]) => k === doc.kind)?.[1] || label(doc.kind))}${doc.content_type === 'application/pdf' ? ' (PDF)' : ''}</a>
@@ -88,6 +93,12 @@ export async function guestView(el, { args, ctx, alive }) {
     a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     a.download = `guest-${g.id}-data.json`;
     a.click();
+  });
+  b('#adjust-points', async () => {
+    const ok = await modal({ title: 'Adjust loyalty points', submit: 'Save',
+      body: `<div class="stack">${field('Points to add (negative to remove) *', 'points', '', 'type="number"')}${field('Reason *', 'reason')}</div>`,
+      onSubmit: (v) => POST(`/guests/${g.id}/points`, v) });
+    if (ok) { toast('Points updated', 'success'); ctx.refresh(); }
   });
   b('#add-doc', async () => {
     const ok = await modal({ title: 'Add ID scan', submit: 'Upload',

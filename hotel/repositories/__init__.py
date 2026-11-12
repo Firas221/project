@@ -5,7 +5,7 @@ from .finance import (AuditDayRepository, ChallengeRepository, CompanyRepository
                       InvoiceRepository,
                       LedgerRepository, OutboxRepository, PasswordResetRepository, PromoRepository, RatePlanRepository,
                       SeasonRepository, ShiftRepository)
-from .guests import GuestDocumentRepository, GuestRepository
+from .guests import GuestDocumentRepository, GuestRepository, LoyaltyRepository
 from .identity import AuditRepository, RoleRepository, SessionRepository, SettingsRepository, UserRepository
 from .inventory import (ItemRepository, MovementRepository, PurchaseOrderRepository, StockRequestRepository,
                         SupplierRepository)
@@ -30,6 +30,7 @@ class Repositories:
     # front office
     guests = cached_property(lambda self: GuestRepository(self.conn))
     guest_documents = cached_property(lambda self: GuestDocumentRepository(self.conn))
+    loyalty = cached_property(lambda self: LoyaltyRepository(self.conn))
     alerts = cached_property(lambda self: AlertRepository(self.conn))
     room_types = cached_property(lambda self: RoomTypeRepository(self.conn))
     rooms = cached_property(lambda self: RoomRepository(self.conn))

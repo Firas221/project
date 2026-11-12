@@ -10,6 +10,7 @@ from .billing import BillingService, CashierService, CompanyService, InvoiceServ
 from .front_office import GuestService, PricingService, RoomService
 from .inventory import InventoryService, PurchasingService, StockRequestService
 from .kitchen import MenuService, OrderService
+from .loyalty import LoyaltyService
 from .notifications import NotificationService
 from .operations import (GuestRequestService, HousekeepingService, LostFoundService, MaintenanceService,
                          ReviewService)
@@ -21,7 +22,7 @@ from .waitlist import WaitlistService
 __all__ = [
     "AlertService", "AuditService", "AuthService", "BillingService", "CashierService", "CompanyService", "DashboardService",
     "GuestPortalService", "GuestRequestService", "GuestService", "HousekeepingService", "InventoryService",
-    "InvoiceService", "LostFoundService", "MaintenanceService", "MenuService", "NightAuditService",
+    "InvoiceService", "LostFoundService", "LoyaltyService", "MaintenanceService", "MenuService", "NightAuditService",
     "NotificationService", "OrderService", "PricingService", "PrivacyService", "PublicService", "PurchasingService",
     "ReportService", "ReservationService", "ReviewService", "RoleService", "RoomService", "Service", "ServiceContext",
     "SettingsService", "StockRequestService", "TaxCalculator", "UserAdminService", "WaitlistService",

@@ -116,6 +116,11 @@ export async function settingsView(el, { ctx, alive }) {
         ${field('Children younger than this stay free (age)', 'child_free_age', s.child_free_age ?? 6, 'type="number" min="0" max="17"')}
         ${field('Reminder e-mail before arrival (days, 0 = never)', 'arrival_reminder_days', s.arrival_reminder_days ?? 2, 'type="number" min="0" max="14"')}
         <div class="full small muted">Guests can change or cancel their own booking until the free-cancellation limit. E-mails go out in the guest's language (English or Arabic).</div></div></div>
+      <div class="card"><div class="card-head"><h2 class="grow">Loyalty programme</h2></div><div class="card-body form-grid">
+        ${check('Guests earn and redeem loyalty points', 'loyalty_enabled', s.loyalty_enabled !== '0', 'full')}
+        ${field('Points earned per 100 spent (before taxes)', 'loyalty_points_per_100', s.loyalty_points_per_100 ?? 10, 'type="number" step="0.5" min="0"')}
+        ${field('Value of one point when redeemed', 'loyalty_point_value', s.loyalty_point_value ?? 0.5, 'type="number" step="0.01" min="0"')}
+        <div class="full small muted">Points are added at check-out. Tiers follow the points earned from stays: Silver from 1,000, Gold from 5,000, Platinum from 15,000.</div></div></div>
       <div class="card"><div class="card-head"><h2 class="grow">Security</h2></div><div class="card-body form-grid">
         ${check('Require two-factor authentication for administrators', 'require_2fa_for_admins', s.require_2fa_for_admins === '1', 'full')}
         <div class="full small muted">Set up your own 2FA under “My security” before enabling this.</div>

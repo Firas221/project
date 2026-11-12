@@ -69,13 +69,17 @@ async function route() {
 }
 
 async function bookingsView(el) {
-  const [list, waiting] = await Promise.all([GET('/portal/reservations'), GET('/portal/waitlist').catch(() => [])]);
+  const [list, waiting, loyal] = await Promise.all([GET('/portal/reservations'), GET('/portal/waitlist').catch(() => []), GET('/portal/loyalty').catch(() => null)]);
   el.innerHTML = `<h1>${t('myBookings')}</h1><p class="muted">${esc(me.user.full_name)}</p>
     ${list.length ? `<div class="booking-list">${list.map((r) => `<a class="booking card" href="#/stay/${r.id}">
       <div><b>${esc(r.room_type)}</b>${r.room_number ? ` · ${t('roomNo')} ${esc(r.room_number)}` : ''}<div class="small muted">${esc(r.code)} · ${planLine(r)}</div></div>
       <div>${fmtDate(r.check_in)} → ${fmtDate(r.check_out)}<div class="small muted">${r.nights} ${t('nights')}</div></div>
       <div>${badge(r.status)}</div><div class="right"><b>${money(r.total)}</b>${r.balance > 0.004 ? `<div class="small text-bad">${t('balance')} ${money(r.balance)}</div>` : ''}</div></a>`).join('')}</div>`
     : `<div class="card card-body center"><p>${t('noBookings')}</p><a class="btn primary" href="/">${t('bookAnother')}</a></div>`}
+    ${loyal && loyal.enabled ? `<h2 style="margin-top:24px">${t('loyalty')}</h2><div class="card card-body" id="my-points">
+      <div><b style="font-size:22px">${loyal.points}</b> ${t('points')} · ${t('worth')} ${money(loyal.value)} · ${t('tier')}: <b>${esc(loyal.tier)}</b></div>
+      <div class="small muted">${loyal.next_tier ? t('toNext', { n: loyal.next_tier.points_needed, tier: esc(loyal.next_tier.name) }) : ''} ${loyal.points ? '' : t('noPoints')}</div>
+      ${loyal.history.slice(0, 5).map((h) => `<div class="line-item"><span>${esc(h.reason)} <span class="small muted">${fmtDate(h.created_at)}</span></span><b>${h.points > 0 ? '+' : ''}${h.points}</b></div>`).join('')}</div>` : ''}
     ${waiting.length ? `<h2 style="margin-top:24px">${t('waitlistTitle')}</h2><div class="card card-body" id="my-waitlist">${waiting.map((w) => `<div class="line-item">
       <span>${fmtDate(w.check_in)} → ${fmtDate(w.check_out)} · ${esc(w.room_type || t('anyRoom'))}</span><button class="btn sm" data-leave="${w.id}">${t('leaveWaitlist')}</button></div>`).join('')}</div>` : ''}`;
   $$('[data-leave]', el).forEach((b) => b.addEventListener('click', async () => { if (await guarded(() => DEL('/portal/waitlist/' + b.dataset.leave), '✓')) route(); }));

@@ -362,6 +362,7 @@ export async function reservationView(el, { args, ctx, alive }) {
     <div class="grid g-main-side">
       <div class="stack">
         <div class="card"><div class="card-head"><h2 class="grow">Folio</h2>
+          ${active && can('billing.charge') && settings.loyalty_enabled === '1' && g.loyalty_points > 0 ? `<button class="btn sm" id="a-redeem">Redeem points (${g.loyalty_points})</button>` : ''}
           ${active && can('billing.charge') ? '<button class="btn sm" id="a-charge">+ Charge</button>' : ''}
           ${r.status !== 'checked_out' && can('billing.payment') ? '<button class="btn sm primary" id="a-pay">+ Payment</button>' : ''}</div>
           ${table(['Date', 'Description', ['Qty', 'num'], ['Unit', 'num'], ['Amount', 'num'], ''], `
@@ -417,6 +418,15 @@ export async function reservationView(el, { args, ctx, alive }) {
   bind('#a-cancel', () => cancelReservation(r, ctx));
   bind('#a-noshow', () => noShow(r, ctx));
   bind('#a-charge', () => addCharge(r, ctx));
+  bind('#a-redeem', async () => {
+    const value = +settings.loyalty_point_value || 0;
+    const most = Math.min(g.loyalty_points, value ? Math.floor(f.subtotal / value) : 0);
+    const ok = await modal({ title: 'Redeem loyalty points', submit: 'Redeem',
+      body: `<p>${esc(r.guest_name)} has <b>${g.loyalty_points}</b> points. One point takes ${money(value)} off the bill before taxes.</p>
+        ${field('Points to redeem', 'points', most, `type="number" min="1" max="${most}"`)}`,
+      onSubmit: (v) => POST(`/reservations/${r.id}/redeem`, v) });
+    if (ok) { toast('Points redeemed', 'success'); ctx.refresh(); }
+  });
   bind('#a-pay', () => addPayment(r, ctx));
   bind('#a-reg', async () => { const { guestForm } = await import('./guests.js'); if (await guestForm(g)) ctx.refresh(); });
   on(el, '[data-void]', 'click', async (e, b) => {

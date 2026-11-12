@@ -324,3 +324,5 @@ tr.row-mine td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 .bell-item { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; }
 .bell-item:hover { text-decoration: none; background: var(--surface-2); }
 .bell-item.unread { background: var(--info-bg); }
+
+.big-number { font-size: 22px; }

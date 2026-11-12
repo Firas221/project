@@ -19,10 +19,27 @@ class GuestDocumentRepository(BaseRepository):
         return (row["guest_id"], row["content_type"], bytes(row["data"])) if row else None
 
 
+class LoyaltyRepository(BaseRepository):
+    table = "loyalty_ledger"
+    columns = ("guest_id", "reservation_id", "charge_id", "points", "reason", "created_by")
+    select_sql = ("SELECT t.*, r.code AS reservation_code, u.full_name AS created_by_name FROM loyalty_ledger t"
+                  " LEFT JOIN reservations r ON r.id = t.reservation_id LEFT JOIN users u ON u.id = t.created_by")
+    default_order = "t.id DESC"
+
+    def history(self, guest_id: int, limit: int = 30) -> list:
+        return self.fetch_all(self.select_sql + " WHERE t.guest_id = ? ORDER BY t.id DESC LIMIT ?", (guest_id, limit))
+
+    def lifetime_earned(self, guest_id: int) -> int:
+        """Points ever earned from stays (redemptions and corrections do not lower a guest's tier)."""
+        return self.scalar("SELECT COALESCE(SUM(points), 0) FROM loyalty_ledger WHERE guest_id = ? AND points > 0"
+                           " AND reservation_id IS NOT NULL AND charge_id IS NULL", (guest_id,), 0)
+
+
 class GuestRepository(BaseRepository):
     table = "guests"
     columns = ("first_name", "last_name", "email", "phone", "address", "nationality", "id_type", "id_number",
-               "date_of_birth", "gender", "vip", "notes", "marketing_consent", "privacy_accepted_at", "anonymized_at", "language")
+               "date_of_birth", "gender", "vip", "notes", "marketing_consent", "privacy_accepted_at", "anonymized_at", "language",
+               "loyalty_points")
     select_sql = (
         "SELECT t.*, (SELECT COUNT(*) FROM reservations r WHERE r.guest_id = t.id AND r.status IN ('checked_in','checked_out')) AS stays,"
         " (SELECT MAX(r.check_in) FROM reservations r WHERE r.guest_id = t.id) AS last_stay,"

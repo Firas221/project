@@ -119,6 +119,9 @@ class BillingService(Service):
             if item:
                 self.use(InventoryService).move(item, "return", c["quantity"], f"Charge voided on {res['code']}",
                                                 reservation_id=res["id"])
+        if c["category"] == "Loyalty":
+            from .loyalty import LoyaltyService
+            self.use(LoyaltyService).redemption_voided(res, c)
         self.repos.charges.delete(c["id"])
         self.audit("charge_void", "reservation", res["id"], f"{res['code']}: {c['description']} {c['amount']:.2f}")
 
@@ -132,6 +135,8 @@ class BillingService(Service):
         c = self.repos.charges.first_by(id=charge_id, reservation_id=res["id"])
         if not c:
             raise ValidationError("Charge not found on this folio")
+        if c["category"] == "Loyalty":
+            raise ValidationError("Redeemed points stay on the guest's own bill")
         self.repos.charges.update(c["id"], reservation_id=target["id"])
         self.audit("charge_transfer", "reservation", res["id"], f"{c['description']} {res['code']} -> {target['code']}")
 

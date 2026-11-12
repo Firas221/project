@@ -147,3 +147,42 @@ test('extra beds and infants: on the website and in the booking form', async () 
   assert.deepEqual(desk.problems, []);
   await desk.context.close();
 });
+
+test('loyalty: a manager adds points, the desk redeems them on a bill, the guest sees the balance', async () => {
+  const { day, number } = require('./support');
+  const mgr = await open();
+  await signIn(mgr.page, 'manager');
+  const amelia = (await api(mgr.page, 'GET', '/guests?q=amelia'))[0];
+  await mgr.page.goto(`${hotel.base}/manager#/guests/${amelia.id}`);
+  await mgr.page.waitForSelector('#adjust-points');
+  await mgr.page.click('#adjust-points');
+  await mgr.page.fill('.modal input[name=points]', '400');
+  await mgr.page.fill('.modal input[name=reason]', 'Welcome gift');
+  await mgr.page.click('.modal button[type=submit]');
+  await mgr.page.waitForFunction(() => /400/.test((document.querySelector('#loyalty') || document.createElement('i')).textContent));
+  assert.match(await mgr.page.locator('#loyalty').innerText(), /400 points · worth 200\.00 EGP[\s\S]*Welcome gift/);
+  const res = await api(mgr.page, 'POST', '/reservations', { guest_id: amelia.id, room_type_id: (await api(mgr.page, 'GET', '/room-types'))[1].id, check_in: day(270), check_out: day(272) });
+  assert.deepEqual(mgr.problems, []);
+  await mgr.context.close();
+
+  const desk = await open();
+  await signIn(desk.page, 'frontdesk');
+  await desk.page.goto(`${hotel.base}/staff#/reservations/${res.id}`);
+  await desk.page.waitForSelector('#a-redeem');
+  assert.match(await desk.page.locator('#a-redeem').innerText(), /Redeem points \(400\)/);
+  await desk.page.click('#a-redeem');
+  await desk.page.fill('.modal input[name=points]', '300');
+  await desk.page.click('.modal button[type=submit]');
+  await desk.page.waitForFunction(() => /Loyalty points redeemed \(300 points\)/.test(document.querySelector('#view').textContent));
+  assert.match((await desk.page.locator('#view').innerText()).replace(/,/g, ''), /-150\.00 EGP/);
+  assert.match(await desk.page.locator('#a-redeem').innerText(), /\(100\)/);
+  assert.deepEqual(desk.problems, []);
+  await desk.context.close();
+
+  const guest = await open();
+  await signIn(guest.page, 'guest');
+  await guest.page.waitForSelector('#my-points');
+  assert.equal(number(await guest.page.locator('#my-points b').first().innerText()), 100);
+  assert.match(await guest.page.locator('#my-points').innerText(), /worth 50\.00 EGP[\s\S]*Welcome gift/);
+  await guest.context.close();
+});

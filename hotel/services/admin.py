@@ -46,6 +46,9 @@ class SettingsSchema(Schema):
     free_cancellation_days = Number(min_value=0, max_value=60, integer=True)
     max_online_nights = Number(min_value=1, max_value=365, integer=True)
     child_free_age = Number(min_value=0, max_value=17, integer=True)
+    loyalty_enabled = Bool()
+    loyalty_points_per_100 = Number(min_value=0, max_value=1000, places=2)
+    loyalty_point_value = Number(min_value=0, max_value=100, places=2)
     require_2fa_for_admins = Bool()
     require_email_verification = Bool()
     auto_night_audit = Bool()
@@ -182,7 +185,7 @@ class SettingsService(Service):
     PUBLIC_KEYS = ("hotel_name", "hotel_name_ar", "tagline", "address", "phone", "email", "currency",
                    "service_charge_rate", "vat_rate", "city_tax_rate", "check_in_time", "check_out_time",
                    "online_booking_enabled", "free_cancellation_days", "max_online_nights", "tax_registration_number",
-                   "child_free_age")
+                   "child_free_age", "loyalty_enabled", "loyalty_point_value")
 
     def public(self) -> dict:
         s = self.settings()
@@ -276,6 +279,8 @@ class PrivacyService(Service):
                                  address="", id_number="", date_of_birth="", notes="", nationality=g["nationality"],
                                  marketing_consent=0, anonymized_at=now_str())
         self.repos.guests.execute("DELETE FROM guest_documents WHERE guest_id=?", (guest_id,))
+        self.repos.guests.execute("DELETE FROM loyalty_ledger WHERE guest_id=?", (guest_id,))
+        self.repos.guests.update(guest_id, loyalty_points=0)
         self.repos.guests.execute("UPDATE guest_requests SET message='(erased)' WHERE reservation_id IN"
                            " (SELECT id FROM reservations WHERE guest_id=?)", (guest_id,))
         self.repos.guests.execute("UPDATE reservations SET special_requests='', notes='' WHERE guest_id=?", (guest_id,))

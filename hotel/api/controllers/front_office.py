@@ -5,7 +5,7 @@ from ...http.messages import Binary
 from ...core.permissions import Perm
 from ...core.validation import Bool, Int, Number
 from ...services import (BillingService, CashierService, CompanyService, DashboardService, GuestService,
-                         InvoiceService, PricingService, PrivacyService, ReservationService, RoomService,
+                         InvoiceService, LoyaltyService, PricingService, PrivacyService, ReservationService, RoomService,
                          WaitlistService)
 from ..router import Controller, delete, get, post, put
 from ..router import delete as delete_route  # for classes that have a method called delete
@@ -85,6 +85,10 @@ class ReservationController(Controller):
         self.svc(BillingService).transfer_charge(reservation_id, charge_id, self.body.get("target_code"))
         return self.rs().detail(reservation_id)
 
+    @post("/reservations/{reservation_id}/redeem", perm=Perm.BILLING_CHARGE)
+    def redeem_points(self, reservation_id):
+        return self.svc(LoyaltyService).redeem(reservation_id, self.body.get("points"))
+
     @post("/reservations/{reservation_id}/payments", perm=Perm.BILLING_PAYMENT)
     def add_payment(self, reservation_id):
         self.svc(BillingService).add_payment(reservation_id, self.body)
@@ -156,6 +160,10 @@ class GuestController(Controller):
     @post("/guests/{guest_id}/erase", perm=Perm.USERS_MANAGE)
     def erase(self, guest_id):
         return self.svc(PrivacyService).anonymize_guest(guest_id)
+
+    @post("/guests/{guest_id}/points", perm=Perm.BILLING_VOID)
+    def adjust_points(self, guest_id):
+        return self.svc(LoyaltyService).adjust(guest_id, self.body.get("points"), self.body.get("reason"))
 
     @post("/guests/{guest_id}/documents", perm=Perm.GUESTS_MANAGE, max_body=PHOTO_UPLOAD_LIMIT)
     def add_document(self, guest_id):

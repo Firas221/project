@@ -399,6 +399,8 @@ class ReservationService(Service):
         self.repos.rooms.set_status(res["room_id"], "dirty")
         self._ensure_task(res["room_id"], "checkout_clean", "high", f"Departure {res['code']}")
         res = self.repos.reservations.get(res["id"])
+        from .loyalty import LoyaltyService
+        self.use(LoyaltyService).earn_for_stay(res, billing.folio(res)["subtotal"])
         invoice = self.use(InvoiceService).issue(res)
         guest = self.repos.guests.get(res["guest_id"])
         if guest["email"]:

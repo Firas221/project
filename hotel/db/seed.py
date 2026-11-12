@@ -37,6 +37,10 @@ DEFAULT_SETTINGS = {
     "free_cancellation_days": "2",
     "max_online_nights": "30",
     "child_free_age": "6",          # children younger than this stay free and need no bed ("infants")
+    # loyalty: points per 100 of spend before tax, and what one point is worth when redeemed
+    "loyalty_enabled": "1",
+    "loyalty_points_per_100": "10",
+    "loyalty_point_value": "0.5",
     # security
     "require_2fa_for_admins": "0",
     "require_email_verification": "1",

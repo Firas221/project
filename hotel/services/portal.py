@@ -226,6 +226,12 @@ class GuestPortalService(Service):
             raise NotFound("No invoice has been issued for this stay yet")
         return inv
 
+    def loyalty(self) -> dict:
+        from .loyalty import LoyaltyService
+        mine = self.use(LoyaltyService).summary(self._guest_id())
+        mine["history"] = [{k: h[k] for k in ("points", "reason", "created_at")} for h in mine["history"]]
+        return mine
+
     # ------------------------------------------------------------ waiting list
     def join_waitlist(self, data: dict) -> dict:
         from .waitlist import WaitlistService

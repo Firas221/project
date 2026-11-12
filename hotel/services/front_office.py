@@ -115,6 +115,8 @@ class GuestService(Service):
             r["total"] = billing.folio(r)["total"]
         g["lifetime_value"] = money(sum(r["total"] for r in g["reservations"] if r["status"] != "cancelled"))
         g["documents"] = self.repos.guest_documents.for_guest(guest_id)
+        from .loyalty import LoyaltyService
+        g["loyalty"] = self.use(LoyaltyService).summary(guest_id)
         return g
 
     def create(self, data: dict) -> dict:

@@ -28,6 +28,7 @@ const STRINGS = {
     infants: 'Infants (under {age})', extraBed: 'incl. {n} extra bed(s)', infantsFree: '{n} infant(s), free',
     joinWaitlist: 'Join the waiting list', waitlistNote: 'We will contact you if a room becomes available for these dates.',
     onWaitlist: 'You are on the waiting list for these dates.', waitlistTitle: 'Waiting list', leaveWaitlist: 'Leave', anyRoom: 'Any room',
+    loyalty: 'Loyalty points', points: 'points', worth: 'worth', tier: 'Level', toNext: '{n} more points to reach {tier}', noPoints: 'You earn points on every stay.',
     payAtHotel: 'Payment is taken at the hotel.', minStay: 'Minimum stay', staffLink: 'Staff', emailLanguage: 'E-mails in',
   },
   ar: {
@@ -58,6 +59,7 @@ const STRINGS = {
     infants: 'رضّع وصغار (أقل من {age})', extraBed: 'شامل {n} سرير إضافي', infantsFree: '{n} رضيع، مجانًا',
     joinWaitlist: 'انضم إلى قائمة الانتظار', waitlistNote: 'سنتواصل معك إذا توفرت غرفة في هذه التواريخ.',
     onWaitlist: 'أنت على قائمة الانتظار لهذه التواريخ.', waitlistTitle: 'قائمة الانتظار', leaveWaitlist: 'انسحاب', anyRoom: 'أي غرفة',
+    loyalty: 'نقاط الولاء', points: 'نقطة', worth: 'بقيمة', tier: 'المستوى', toNext: 'تحتاج {n} نقطة أخرى للوصول إلى {tier}', noPoints: 'تكسب نقاطًا مع كل إقامة.',
     payAtHotel: 'يتم الدفع في الفندق.', minStay: 'أقل مدة إقامة', staffLink: 'الموظفون', emailLanguage: 'لغة الرسائل',
   },
 };

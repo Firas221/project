@@ -62,6 +62,10 @@ class GuestPortalController(Controller):
     def change(self, reservation_id):
         return self.portal().change(reservation_id, self.body, preview=bool(self.body.get("preview")))
 
+    @get("/portal/loyalty", audience="guest")
+    def loyalty(self):
+        return self.portal().loyalty()
+
     @get("/portal/waitlist", audience="guest")
     def my_waitlist(self):
         return self.portal().my_waitlist()
