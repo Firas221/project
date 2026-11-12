@@ -18,7 +18,7 @@ test('the administrator deletes a user from the Security dialog', async () => {
   await page.waitForSelector('.modal button[type=submit]');
   assert.match(await page.locator('.modal').innerText(), /leaving\.soon/);
   await page.click('.modal button[type=submit]');
-  await page.waitForFunction(() => !document.querySelector('#view').textContent.includes('leaving.soon'));
+  await page.waitForFunction(() => !(document.querySelector('#view') || document.createElement('i')).textContent.includes('leaving.soon'));
   // you are not offered to delete yourself
   await page.locator('tr', { hasText: 'Alex Morgan' }).locator('[data-more]').click();
   await page.waitForSelector('.modal [data-a=unlock]');
@@ -50,7 +50,7 @@ test('front desk uploads a passport scan, opens it, and deletes it', async () =>
   assert.ok(scan.size > 1000);
   await page.click('[data-del-doc]');
   await page.click('.modal button[type=submit]');
-  await page.waitForFunction(() => /No scans on file/.test(document.querySelector('#docs').textContent));
+  await page.waitForFunction(() => /No scans on file/.test((document.querySelector('#docs') || document.createElement('i')).textContent));
   assert.deepEqual(problems.filter((p) => !p.includes('/documents')), []);    // the deliberate empty upload
   await context.close();
 
@@ -76,15 +76,15 @@ test('the bell: a guest request appears for the front desk, and following it mar
   await guest.context.close();
 
   await desk.page.clock.fastForward(31000);                                     // the bell checks every 30 seconds
-  await desk.page.waitForFunction((n) => +document.querySelector('#bell-count').textContent === n + 1, before);
+  await desk.page.waitForFunction((n) => +(document.querySelector('#bell-count') || document.createElement('i')).textContent === n + 1, before);
   await desk.page.click('#bell');
   await desk.page.waitForSelector('.bell-item.unread');
   const first = desk.page.locator('.bell-item').first();
   assert.match(await first.innerText(), /New guest request[\s\S]*An extra blanket please/);
   await first.click();
   await desk.page.waitForFunction(() => location.hash === '#/requests');
-  await desk.page.waitForFunction(() => document.querySelector('#view').textContent.includes('An extra blanket please'));
-  await desk.page.waitForFunction((n) => (+document.querySelector('#bell-count').textContent || 0) === n, before);
+  await desk.page.waitForFunction(() => (document.querySelector('#view') || document.createElement('i')).textContent.includes('An extra blanket please'));
+  await desk.page.waitForFunction((n) => (+(document.querySelector('#bell-count') || document.createElement('i')).textContent || 0) === n, before);
   assert.deepEqual(desk.problems, []);
   await desk.context.close();
 });
@@ -95,7 +95,7 @@ test('the bell in Arabic, and "mark all as read"', async () => {
   await page.click('#bell');
   await page.waitForSelector('.bell-head');
   assert.match(await page.locator('.bell-head').innerText(), /الإشعارات/);
-  await page.waitForFunction(() => /طلب نزيل جديد/.test(document.querySelector('#bell-panel').textContent));
+  await page.waitForFunction(() => /طلب نزيل جديد/.test((document.querySelector('#bell-panel') || document.createElement('i')).textContent));
   await page.click('#bell-all');
   await page.waitForFunction(() => document.querySelectorAll('.bell-item.unread').length === 0);
   assert.ok(!(await page.locator('#bell-count').isVisible()));
@@ -138,11 +138,11 @@ test('extra beds and infants: on the website and in the booking form', async () 
   await desk.page.selectOption('.modal select[name=type_id]', { label: await desk.page.locator('.modal select[name=type_id] option', { hasText: 'Deluxe King' }).innerText() });
   await desk.page.waitForFunction(() => [...document.querySelectorAll('.room-opt')].every((o) => o.textContent.includes('Deluxe King')));
   await desk.page.locator('.room-opt').first().click();
-  await desk.page.waitForFunction(() => +document.querySelector('.modal input[name=rate]').value > 0);
+  await desk.page.waitForFunction(() => +(document.querySelector('.modal input[name=rate]') || { value: 0 }).value > 0);
   const plain = number(await desk.page.locator('.modal input[name=rate]').inputValue());
   await desk.page.fill('.modal input[name=adults]', '3');
   await desk.page.locator('.modal input[name=adults]').dispatchEvent('change');
-  await desk.page.waitForFunction((before) => +document.querySelector('.modal input[name=rate]').value === before + 600, plain);
+  await desk.page.waitForFunction((before) => +(document.querySelector('.modal input[name=rate]') || { value: 0 }).value === before + 600, plain);
   assert.match(await desk.page.locator('#est').innerText(), /includes 1 extra bed\(s\)/);
   assert.deepEqual(desk.problems, []);
   await desk.context.close();

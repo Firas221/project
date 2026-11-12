@@ -153,7 +153,7 @@ test('Arabic: the staff portal switches to right-to-left and translates the inte
   await page.click('#lang-toggle');
   await page.waitForFunction(() => document.documentElement.dir === 'rtl');
   await settle(page);
-  await page.waitForFunction(() => document.querySelector('.nav a').textContent.trim() === 'لوحة المتابعة');
+  await page.waitForFunction(() => (document.querySelector('.nav a') || document.createElement('i')).textContent.trim() === 'لوحة المتابعة');
   const nav = await page.$$eval('.nav a', (as) => as.map((a) => a.textContent.trim()));
   assert.ok(nav.includes('الحجوزات') && nav.includes('الإعدادات'), 'sidebar is in Arabic');
   assert.ok(nav.every((label) => !/[A-Za-z]/.test(label)), `sidebar still has English: ${nav}`);
@@ -213,7 +213,7 @@ test('room photos: upload in the admin portal, shown on the booking website', as
   assert.equal(await page.locator('.photo .badge').count(), 1, 'exactly one cover photo');
   const coverBefore = await page.locator('.photo img').first().getAttribute('src');
   await page.locator('[data-cover]').click();
-  await page.waitForFunction((src) => document.querySelector('.photo img').getAttribute('src') !== src, coverBefore);
+  await page.waitForFunction((src) => (document.querySelector('.photo img') || document.createElement('i')).getAttribute('src') !== src, coverBefore);
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => /\(2\)/.test((document.querySelector('[data-photos]') || {}).textContent || ''));
 
@@ -255,16 +255,16 @@ test('delete buttons: promo code, season, room type and guest', async () => {
   await settle(page);
   await page.locator('tr', { hasText: 'BROWSERTEST' }).locator('[data-del-promo]').click();
   await confirmDelete();
-  await page.waitForFunction(() => !document.querySelector('#view').textContent.includes('BROWSERTEST'));
+  await page.waitForFunction(() => !(document.querySelector('#view') || document.createElement('i')).textContent.includes('BROWSERTEST'));
   await page.locator('tr', { hasText: 'Browser season' }).locator('[data-del-season]').click();
   await confirmDelete();
-  await page.waitForFunction(() => !document.querySelector('#view').textContent.includes('Browser season'));
+  await page.waitForFunction(() => !(document.querySelector('#view') || document.createElement('i')).textContent.includes('Browser season'));
 
   await page.goto(base + '/admin#/rooms?tab=types');
   await settle(page);
   await page.locator('tr', { hasText: 'Browser type' }).locator('[data-del-type]').click();
   await confirmDelete();
-  await page.waitForFunction(() => !document.querySelector('#view').textContent.includes('Browser type'));
+  await page.waitForFunction(() => !(document.querySelector('#view') || document.createElement('i')).textContent.includes('Browser type'));
   // a type that still has rooms is refused, with the reason shown
   await page.locator('tr', { hasText: 'Standard Single' }).locator('[data-del-type]').click();
   await page.click('.modal button[type=submit]');

@@ -40,7 +40,7 @@ test('waiting list: add a guest, a room frees up, book it from the list', async 
   assert.equal(await page.inputValue('.modal input[name=first_name]'), 'Wafaa');
   assert.equal(await page.inputValue('.modal input[name=phone]'), '+20 111 222 3333');
   await page.locator('.modal .room-opt').first().click();
-  await page.waitForFunction(() => +document.querySelector('.modal input[name=rate]').value > 0);
+  await page.waitForFunction(() => +(document.querySelector('.modal input[name=rate]') || { value: 0 }).value > 0);
   await page.click('.modal button[type=submit]');
   await page.waitForURL((url) => /#\/reservations\/\d+/.test(url.hash));
   assert.equal(sql("SELECT status FROM waitlist WHERE name='Wafaa Waiting'"), 'booked');
@@ -76,7 +76,7 @@ test('stop-sell: the admin closes dates, the website stops offering them and inv
   await guest.page.waitForSelector('#join-wl');
   assert.equal(await guest.page.locator('.offer').count(), 0);
   await guest.page.click('#join-wl');
-  await guest.page.waitForFunction(() => /waiting list for these dates/.test(document.querySelector('#wl').textContent));
+  await guest.page.waitForFunction(() => /waiting list for these dates/.test((document.querySelector('#wl') || document.createElement('i')).textContent));
   await guest.page.goto(hotel.base + '/account');
   await guest.page.waitForSelector('#my-waitlist [data-leave]');
   await guest.page.click('#my-waitlist [data-leave]');
@@ -90,7 +90,7 @@ test('the waiting list in Arabic', async () => {
   await signIn(page, 'manager');
   await page.goto(hotel.base + '/manager#/waitlist');
   await settle(page);
-  await page.waitForFunction(() => document.querySelector('#view h1').textContent.trim() === 'قائمة الانتظار');
+  await page.waitForFunction(() => (document.querySelector('#view h1') || document.createElement('i')).textContent.trim() === 'قائمة الانتظار');
   const headings = await page.$$eval('#view th', (ths) => ths.map((th) => th.textContent.trim()).filter(Boolean));
   assert.ok(headings.every((h) => !/[A-Za-z]/.test(h)), `still English: ${headings}`);
   await context.close();

@@ -201,7 +201,7 @@ export function modal({ title, body, submit = 'Save', danger = false, wide = fal
     });
     if (onOpen) onOpen(back);
     const first = $('input:not([type=hidden]):not([type=radio]):not([type=checkbox]), select, textarea', form);
-    if (first) setTimeout(() => first.focus(), 30);
+    if (first) first.focus({ preventScroll: true });   // at once: a delayed focus could steal text being typed into another field
   });
 }
 

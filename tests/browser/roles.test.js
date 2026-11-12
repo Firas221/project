@@ -111,7 +111,7 @@ test('a ticket given to a technician shows up in their portal, and they close it
   await desk.page.waitForSelector('.modal');
   await desk.page.selectOption('.modal select[name=assigned_to]', { label: 'Tarek Aziz' });
   await desk.page.click('.modal button[type=submit]');
-  await desk.page.waitForFunction(() => /Tarek Aziz/.test([...document.querySelectorAll('#view tr')].find((r) => r.textContent.includes('pump noisy')).textContent));
+  await desk.page.waitForFunction(() => [...document.querySelectorAll('#view tr')].some((r) => r.textContent.includes('pump noisy') && r.textContent.includes('Tarek Aziz')));
   await desk.context.close();
 
   const { context, page, problems } = await open();
@@ -123,7 +123,7 @@ test('a ticket given to a technician shows up in their portal, and they close it
   await page.selectOption('.modal select[name=status]', 'resolved');
   await page.fill('.modal textarea[name=resolution]', 'Bearing replaced');
   await page.click('.modal button[type=submit]');
-  await page.waitForFunction(() => !document.querySelector('#view').textContent.includes('pump noisy'));   // off the open list
+  await page.waitForFunction(() => !(document.querySelector('#view') || document.createElement('i')).textContent.includes('pump noisy'));   // off the open list
   assert.deepEqual(problems, []);
   await context.close();
 });
@@ -175,7 +175,7 @@ test('the administrator creates a storekeeper and sees every role in the permiss
 
   const ar = await open('ar');
   await signIn(ar.page, 'supervisor');
-  await ar.page.waitForFunction(() => document.querySelector('.nav a').textContent.trim() === 'لوحة الإشراف الداخلي');
+  await ar.page.waitForFunction(() => (document.querySelector('.nav a') || document.createElement('i')).textContent.trim() === 'لوحة الإشراف الداخلي');
   assert.match(await ar.page.locator('.sidebar-foot').innerText(), /مشرف الإشراف الداخلي/);
   assert.equal(await ar.page.locator('.brand-sub').innerText(), 'الإشراف الداخلي');
   await ar.context.close();

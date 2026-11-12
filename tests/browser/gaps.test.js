@@ -124,11 +124,11 @@ test('rate plans: created by the admin, priced in the booking form, shown on the
   await page.waitForSelector('.room-opt');
   await page.locator('.room-opt').first().click();
   const rate = () => page.locator('.modal input[name=rate]').inputValue().then(Number);
-  await page.waitForFunction(() => +document.querySelector('.modal input[name=rate]').value > 0);
+  await page.waitForFunction(() => +(document.querySelector('.modal input[name=rate]') || { value: 0 }).value > 0);
   const plain = await rate();
   const planId = await page.locator('.modal select[name=rate_plan_id] option', { hasText: 'Half board dinner' }).getAttribute('value');
   await page.selectOption('.modal select[name=rate_plan_id]', planId);
-  await page.waitForFunction((before) => +document.querySelector('.modal input[name=rate]').value !== before, plain);
+  await page.waitForFunction((before) => +(document.querySelector('.modal input[name=rate]') || { value: 0 }).value !== before, plain);
   assert.equal(await rate(), plain + 500);
   await page.fill('.modal input[name=first_name]', 'Plan');
   await page.fill('.modal input[name=last_name]', 'Tester');
@@ -140,7 +140,7 @@ test('rate plans: created by the admin, priced in the booking form, shown on the
   await page.goto(base + '/admin#/rooms?tab=pricing');
   await page.locator('tr', { hasText: 'Half board dinner' }).locator('[data-del-plan]').click();
   await page.click('.modal button[type=submit]');
-  await page.waitForFunction(() => !document.querySelector('#view').textContent.includes('Half board dinner'));
+  await page.waitForFunction(() => !(document.querySelector('#view') || document.createElement('i')).textContent.includes('Half board dinner'));
   await page.goBack();
   await page.waitForSelector('#plan-line');
   assert.equal(await page.locator('#plan-line').innerText(), 'Half board dinner · Half board');
@@ -209,7 +209,7 @@ test('guest account: change a booking — see the new price first, then confirm'
   assert.equal(sql('SELECT check_in FROM reservations ORDER BY id DESC LIMIT 1'), day(140), 'nothing is saved before confirming');
   await page.click('.modal button[type=submit]');
   await page.waitForSelector('.toast.success');
-  await page.waitForFunction((old) => document.querySelector('#view').innerText !== old, before);
+  await page.waitForFunction((old) => (document.querySelector('#view') || document.createElement('i')).innerText !== old, before);
   assert.equal(sql('SELECT check_in || " " || check_out FROM reservations ORDER BY id DESC LIMIT 1'), `${day(150)} ${day(153)}`);
   assert.match((await page.locator('#view').innerText()).replace(/,/g, ''), new RegExp(quoted.toFixed(2)), 'the bill shows the quoted total');
   assert.equal(sql("SELECT COUNT(*) FROM email_outbox WHERE to_address=? AND subject LIKE '%was changed'", 'change.guest@example.com'), '1');
@@ -233,7 +233,7 @@ test('long lists are split into pages', async () => {
   assert.ok(await page.locator('.pager [data-page]').first().isDisabled(), 'no "previous" on the first page');
   const first = await page.locator('#list tbody tr').first().innerText();
   await page.locator('.pager [data-page]').last().click();
-  await page.waitForFunction(() => /Page 2 of 3/.test(document.querySelector('.pager').textContent));
+  await page.waitForFunction(() => /Page 2 of 3/.test((document.querySelector('.pager') || document.createElement('i')).textContent));
   assert.notEqual(await page.locator('#list tbody tr').first().innerText(), first);
   // searching goes back to the first page of the matches
   await page.fill('#q', 'Paged0');
@@ -262,13 +262,13 @@ test('the housekeeping board shows a new task by itself, but not while someone i
   await signIn(page, 'frontdesk');
   await page.goto(base + '/staff#/housekeeping');
   await page.waitForSelector('#view .page-head');
-  const count = () => page.evaluate(() => document.querySelector('#view').textContent.split('Auto-refresh test task').length - 1);
+  const count = () => page.evaluate(() => (document.querySelector('#view') || document.createElement('i')).textContent.split('Auto-refresh test task').length - 1);
   assert.equal(await count(), 0);
   const rooms = await api(page, 'GET', '/rooms');
   await api(page, 'POST', '/housekeeping/tasks', { room_id: rooms[rooms.length - 1].id, kind: 'deep_clean', notes: 'Auto-refresh test task' });
   assert.equal(await count(), 0, 'not there until the screen refreshes');
   await page.clock.fastForward(31000);
-  await page.waitForFunction(() => document.querySelector('#view').textContent.includes('Auto-refresh test task'));
+  await page.waitForFunction(() => (document.querySelector('#view') || document.createElement('i')).textContent.includes('Auto-refresh test task'));
 
   // an open dialog pauses refreshing, so nothing a person is typing is lost
   await api(page, 'POST', '/housekeeping/tasks', { room_id: rooms[rooms.length - 2].id, kind: 'deep_clean', notes: 'Second test task' });
@@ -279,7 +279,7 @@ test('the housekeeping board shows a new task by itself, but not while someone i
   assert.ok(!(await page.locator('#view').innerText()).includes('Second test task'));
   await page.keyboard.press('Escape');
   await page.clock.fastForward(31000);
-  await page.waitForFunction(() => document.querySelector('#view').textContent.includes('Second test task'));
+  await page.waitForFunction(() => (document.querySelector('#view') || document.createElement('i')).textContent.includes('Second test task'));
   assert.deepEqual(problems, []);
   await context.close();
 });
