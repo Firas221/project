@@ -326,3 +326,10 @@ tr.row-mine td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 .bell-item.unread { background: var(--info-bg); }
 
 .big-number { font-size: 22px; }
+
+/* staff roster */
+table.roster th.today { background: var(--info-bg); }
+td.roster-cell { cursor: pointer; min-width: 92px; vertical-align: top; }
+td.roster-cell:hover { background: var(--surface-2); }
+.shift-chip { display: block; width: 100%; margin: 2px 0; padding: 3px 6px; border: 0; border-radius: 6px; background: var(--info-bg); color: var(--info); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.shift-chip:hover { filter: brightness(.95); }

@@ -9,6 +9,7 @@ import * as inv from '../views/inventory.js';
 import * as fin from '../views/finance.js';
 import * as admin from '../views/admin.js';
 import { waitlistView } from '../views/waitlist.js';
+import { myShiftsView, rosterView } from '../views/roster.js';
 
 export const SCREENS = {
   dashboard: { label: 'Dashboard', icon: 'dashboard', perm: 'dashboard.view', view: fd.dashboardView, live: 60 },
@@ -31,6 +32,8 @@ export const SCREENS = {
   supplies: { label: 'Supplies', icon: 'inventory', perm: 'inventory.request', view: inv.mySuppliesView },
   reports: { label: 'Reports', icon: 'reports', perm: 'reports.view', view: fin.reportsView },
   'night-audit': { label: 'Night audit', icon: 'moon', perm: 'reports.view', view: fin.nightAuditView },
+  roster: { label: 'Staff roster', icon: 'calendar', perm: 'roster.manage', view: rosterView },
+  'my-shifts': { label: 'My shifts', icon: 'calendar', perm: null, view: myShiftsView },
   users: { label: 'Users', icon: 'guests', perm: 'users.manage', view: admin.usersView },
   roles: { label: 'Roles & permissions', icon: 'shield', perm: 'roles.manage', view: admin.rolesView },
   settings: { label: 'Settings', icon: 'settings', perm: 'settings.manage', view: admin.settingsView },

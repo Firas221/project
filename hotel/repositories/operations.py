@@ -44,6 +44,39 @@ class HousekeepingTaskRepository(BaseRepository):
             " GROUP BY u.id ORDER BY done DESC", (date_from, date_to))
 
 
+class RosterRepository(BaseRepository):
+    table = "roster_shifts"
+    columns = ("user_id", "work_date", "start_time", "end_time", "note", "created_by")
+    select_sql = "SELECT t.*, u.full_name AS user_name, u.role AS user_role FROM roster_shifts t JOIN users u ON u.id = t.user_id"
+    default_order = "t.work_date, t.start_time, u.full_name"
+    entity_label = "Shift"
+
+    def between(self, start: str, end: str, user_id: int = None) -> list:
+        """Shifts on dates start..end inclusive."""
+        qb = QueryBuilder(self.select_sql)
+        qb.add("t.work_date BETWEEN ? AND ?", start, end)
+        qb.add_if(user_id, "t.user_id = ?", user_id)
+        return self.fetch_all(qb.sql(self.default_order), qb.args)
+
+
+class AttendanceRepository(BaseRepository):
+    table = "attendance"
+    columns = ("user_id", "clock_in", "clock_out", "note", "edited_by")
+    select_sql = "SELECT t.*, u.full_name AS user_name, u.role AS user_role FROM attendance t JOIN users u ON u.id = t.user_id"
+    default_order = "t.clock_in DESC"
+    entity_label = "Attendance record"
+
+    def open_for(self, user_id: int):
+        return self.fetch_one(self.select_sql + " WHERE t.user_id = ? AND t.clock_out IS NULL ORDER BY t.id DESC", (user_id,))
+
+    def between(self, start: str, end: str, user_id: int = None) -> list:
+        """Records that started on dates start..end inclusive."""
+        qb = QueryBuilder(self.select_sql)
+        qb.add("date(t.clock_in) BETWEEN ? AND ?", start, end)
+        qb.add_if(user_id, "t.user_id = ?", user_id)
+        return self.fetch_all(qb.sql(self.default_order, 2000), qb.args)
+
+
 class AlertRepository(BaseRepository):
     """In-app alerts for staff (the bell in the portals)."""
     table = "staff_alerts"

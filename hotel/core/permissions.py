@@ -102,6 +102,7 @@ class Perm:
 
     REPORTS_VIEW = "reports.view"
     NIGHT_AUDIT_CLOSE = "nightaudit.close"
+    ROSTER_MANAGE = "roster.manage"
 
     USERS_MANAGE = "users.manage"
     ROLES_MANAGE = "roles.manage"
@@ -147,6 +148,7 @@ PERMISSION_CATALOG = (
     (Perm.PURCHASING_MANAGE, "Inventory", "Manage suppliers and purchase orders"),
     (Perm.REPORTS_VIEW, "Administration", "View management reports"),
     (Perm.NIGHT_AUDIT_CLOSE, "Administration", "Close the business day (night audit)"),
+    (Perm.ROSTER_MANAGE, "Administration", "Plan staff shifts and see attendance"),
     (Perm.USERS_MANAGE, "Administration", "Manage user accounts"),
     (Perm.ROLES_MANAGE, "Administration", "Change role permissions"),
     (Perm.SETTINGS_MANAGE, "Administration", "Change hotel settings"),
@@ -180,7 +182,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         Perm.MAINTENANCE_VIEW, Perm.MAINTENANCE_REPORT, Perm.MAINTENANCE_MANAGE,
         Perm.KITCHEN_VIEW, Perm.ORDERS_CREATE, Perm.MENU_MANAGE,
         Perm.INVENTORY_VIEW, Perm.INVENTORY_REQUEST, Perm.INVENTORY_APPROVE, Perm.INVENTORY_MANAGE, Perm.PURCHASING_MANAGE,
-        Perm.REPORTS_VIEW, Perm.NIGHT_AUDIT_CLOSE, Perm.AUDIT_VIEW,
+        Perm.REPORTS_VIEW, Perm.NIGHT_AUDIT_CLOSE, Perm.AUDIT_VIEW, Perm.ROSTER_MANAGE,
     },
     # Money: invoices, VAT, corporate accounts, cashier shifts, reports. Sees reservations and guests but cannot change them.
     Role.ACCOUNTANT: {

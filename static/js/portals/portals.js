@@ -13,14 +13,14 @@ const PORTALS = {
     title: 'Administration', allow: (u) => u.role === 'admin', topAction: booking,
     keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'menu', 'lost-found', 'reviews', '|',
-      'rooms', 'inventory', 'reports', 'night-audit', '|', 'users', 'roles', 'settings', 'audit'],
+      'rooms', 'inventory', 'reports', 'night-audit', 'roster', '|', 'users', 'roles', 'settings', 'audit'],
   },
   // Manager: every department, rates, reports, the audit log and closing the day — but not users, roles or settings.
   manager: {
     title: 'Management', allow: (u) => u.role === 'admin' || u.role === 'manager', topAction: booking,
     keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'menu', 'lost-found', 'reviews', '|',
-      'rooms', 'inventory', 'reports', 'night-audit', 'audit'],
+      'rooms', 'inventory', 'reports', 'night-audit', 'roster', 'audit'],
   },
   // Accountant: reports, tax invoices, corporate accounts and cashier shifts; reservations and guests are read-only.
   finance: {
@@ -76,7 +76,8 @@ const key = document.body.dataset.portal;
 const def = PORTALS[key];
 if (def) {
   const screen = (k) => ({ ...(SCREENS[k] || {}), ...((def.screens || {})[k] || {}) });
-  const nav = def.keys.map((k, i) => (k === '|' ? { sep: true } : { ...screen(k), path: i === 0 ? '' : k }));
+  // every member of staff gets "My shifts" (their planned shifts and their clock) at the end of their menu
+  const nav = def.keys.concat(['|', 'my-shifts']).map((k, i) => (k === '|' ? { sep: true } : { ...screen(k), path: i === 0 ? '' : k }));
   if (key === 'housekeeping') nav[0].labelFor = (u) => (has(u, 'housekeeping.work') ? 'My rooms' : 'Housekeeping board');
   const home = def.keys[0];
   startPortal({

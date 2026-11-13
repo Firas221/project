@@ -10,8 +10,8 @@ from .identity import AuditRepository, RoleRepository, SessionRepository, Settin
 from .inventory import (ItemRepository, MovementRepository, PurchaseOrderRepository, StockRequestRepository,
                         SupplierRepository)
 from .kitchen import MenuRepository, OrderRepository
-from .operations import (AlertRepository, GuestRequestRepository, HousekeepingTaskRepository, LostFoundRepository,
-                         MaintenanceRepository, ReviewRepository)
+from .operations import (AlertRepository, AttendanceRepository, GuestRequestRepository, HousekeepingTaskRepository, LostFoundRepository,
+                         MaintenanceRepository, ReviewRepository, RosterRepository)
 from .reservations import (ChargeRepository, PaymentRepository, ReservationRepository, StopSellRepository,
                            WaitlistRepository)
 from .rooms import RoomPhotoRepository, RoomRepository, RoomTypeRepository
@@ -32,6 +32,8 @@ class Repositories:
     guest_documents = cached_property(lambda self: GuestDocumentRepository(self.conn))
     loyalty = cached_property(lambda self: LoyaltyRepository(self.conn))
     alerts = cached_property(lambda self: AlertRepository(self.conn))
+    roster = cached_property(lambda self: RosterRepository(self.conn))
+    attendance = cached_property(lambda self: AttendanceRepository(self.conn))
     room_types = cached_property(lambda self: RoomTypeRepository(self.conn))
     rooms = cached_property(lambda self: RoomRepository(self.conn))
     room_photos = cached_property(lambda self: RoomPhotoRepository(self.conn))

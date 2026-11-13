@@ -9,7 +9,7 @@ from ...core.errors import NotFound, PermissionDenied, ValidationError
 from ...core.permissions import Perm
 from ...http.messages import Download
 from ...services import (AlertService, AuditService, GuestService, InventoryService, NightAuditService, ReportService,
-                         ReservationService, RoleService, SettingsService, UserAdminService)
+                         ReservationService, RoleService, RosterService, SettingsService, UserAdminService)
 from ..router import Controller, delete, get, post, put
 
 
@@ -81,6 +81,45 @@ class AlertController(Controller):
     def read(self):
         alert_id = self.body.get("id")
         return self.svc(AlertService).mark_read(int(alert_id) if str(alert_id or "").isdigit() else None)
+
+
+class RosterController(Controller):
+    @get("/roster", perm=Perm.ROSTER_MANAGE)
+    def week(self):
+        return self.svc(RosterService).week(self.q("from"), self.q("days", 7))
+
+    @post("/roster", perm=Perm.ROSTER_MANAGE)
+    def add(self):
+        return self.svc(RosterService).add(self.body)
+
+    @post("/roster/copy-week", perm=Perm.ROSTER_MANAGE)
+    def copy_week(self):
+        return self.svc(RosterService).copy_week(self.body.get("from"), self.body.get("to"))
+
+    @put("/roster/{shift_id}", perm=Perm.ROSTER_MANAGE)
+    def update(self, shift_id):
+        return self.svc(RosterService).update(shift_id, self.body)
+
+    @delete("/roster/{shift_id}", perm=Perm.ROSTER_MANAGE)
+    def remove(self, shift_id):
+        self.svc(RosterService).delete(shift_id)
+
+    # every member of staff: their own shifts and clock
+    @get("/roster/mine")
+    def mine(self):
+        return self.svc(RosterService).mine()
+
+    @post("/attendance/clock-in")
+    def clock_in(self):
+        return self.svc(RosterService).clock_in()
+
+    @post("/attendance/clock-out")
+    def clock_out(self):
+        return self.svc(RosterService).clock_out()
+
+    @put("/attendance/{record_id}", perm=Perm.ROSTER_MANAGE)
+    def correct(self, record_id):
+        return self.svc(RosterService).correct(record_id, self.body.get("clock_in"), self.body.get("clock_out"))
 
 
 class RoleController(Controller):

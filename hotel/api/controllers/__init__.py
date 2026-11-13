@@ -1,5 +1,5 @@
 """All API controllers, registered with the router in :mod:`hotel.app`."""
-from .admin import (AlertController, AuditController, ExportController, ReportController, RoleController, SettingsController,
+from .admin import (AlertController, AuditController, RosterController, ExportController, ReportController, RoleController, SettingsController,
                     UserController)
 from .auth import AuthController
 from .front_office import (CashierController, CompanyController, DashboardController, GuestController,
@@ -16,5 +16,5 @@ CONTROLLERS = [
     HousekeepingController, MaintenanceController, GuestRequestController, LostFoundController, ReviewController,
     KitchenController,
     InventoryController, PurchasingController, StockRequestController,
-    UserController, AlertController, RoleController, SettingsController, AuditController, ReportController, ExportController,
+    UserController, AlertController, RosterController, RoleController, SettingsController, AuditController, ReportController, ExportController,
 ]
