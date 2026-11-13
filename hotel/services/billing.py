@@ -292,7 +292,7 @@ class CashierService(Service):
             counted = money(float(counted_cash))
         except (TypeError, ValueError):
             raise ValidationError("Counted cash must be a number", field="counted_cash")
-        expected = money(shift["opening_float"] + shift["cash_taken"] + shift["restaurant_cash"])
+        expected = money(shift["opening_float"] + shift["cash_taken"] + shift["restaurant_cash"] + shift["events_cash"])
         self.repos.shifts.update(shift["id"], closed_at=now_str(), expected_cash=expected, counted_cash=counted,
                                  variance=money(counted - expected), notes=str(notes or "")[:500])
         self.audit("shift_close", "shift", shift["id"], f"expected {expected:.2f} counted {counted:.2f}")

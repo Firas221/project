@@ -6,6 +6,7 @@ collaborating services share one transaction.
 from .admin import AlertService, AuditService, PrivacyService, RoleService, SettingsService, UserAdminService
 from .auth import AuthService
 from .base import Service, ServiceContext
+from .events import EventService
 from .billing import BillingService, CashierService, CompanyService, InvoiceService, TaxCalculator
 from .front_office import GuestService, PricingService, RoomService
 from .inventory import InventoryService, PurchasingService, StockRequestService
@@ -22,7 +23,7 @@ from .roster import RosterService
 from .waitlist import WaitlistService
 
 __all__ = [
-    "AlertService", "AuditService", "AuthService", "BillingService", "CashierService", "CompanyService", "DashboardService",
+    "AlertService", "AuditService", "AuthService", "BillingService", "CashierService", "CompanyService", "DashboardService", "EventService",
     "GuestPortalService", "GuestRequestService", "GuestService", "HousekeepingService", "InventoryService",
     "InvoiceService", "LostFoundService", "LoyaltyService", "MaintenanceService", "MenuService", "NightAuditService",
     "NotificationService", "OrderService", "PricingService", "PrivacyService", "PublicService", "PurchasingService",

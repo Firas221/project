@@ -97,6 +97,8 @@ class Perm:
     KITCHEN_ORDERS = "kitchen.orders"
     MENU_MANAGE = "menu.manage"
     ORDERS_CREATE = "orders.create"
+    EVENTS_VIEW = "events.view"
+    EVENTS_MANAGE = "events.manage"
     RESTAURANT_SERVE = "restaurant.serve"
     RESTAURANT_MANAGE = "restaurant.manage"
 
@@ -127,6 +129,8 @@ PERMISSION_CATALOG = (
     (Perm.GUESTS_MANAGE, "Front office", "Create and edit guest profiles"),
     (Perm.REQUESTS_MANAGE, "Front office", "Handle guest requests"),
     (Perm.REVIEWS_MANAGE, "Front office", "Moderate guest reviews"),
+    (Perm.EVENTS_VIEW, "Front office", "View banquet and event bookings"),
+    (Perm.EVENTS_MANAGE, "Front office", "Create, confirm and bill events; set up venues"),
     (Perm.BILLING_VIEW, "Billing", "View guest folios and invoices"),
     (Perm.BILLING_CHARGE, "Billing", "Post charges to folios"),
     (Perm.BILLING_PAYMENT, "Billing", "Record payments and refunds"),
@@ -166,7 +170,7 @@ ALL_PERMISSIONS = frozenset(p for p, _, _ in PERMISSION_CATALOG)
 DEFAULT_ROLE_PERMISSIONS = {
     Role.STAFF: {
         Perm.DASHBOARD_VIEW, Perm.RESERVATIONS_VIEW, Perm.RESERVATIONS_MANAGE, Perm.FRONTDESK_CHECKIN,
-        Perm.GUESTS_VIEW, Perm.GUESTS_MANAGE, Perm.REQUESTS_MANAGE, Perm.REVIEWS_MANAGE,
+        Perm.GUESTS_VIEW, Perm.GUESTS_MANAGE, Perm.REQUESTS_MANAGE, Perm.REVIEWS_MANAGE, Perm.EVENTS_VIEW, Perm.EVENTS_MANAGE,
         Perm.BILLING_VIEW, Perm.BILLING_CHARGE, Perm.BILLING_PAYMENT,
         Perm.ROOMS_VIEW, Perm.ROOMS_STATUS,
         Perm.HOUSEKEEPING_VIEW, Perm.HOUSEKEEPING_MANAGE, Perm.LOSTFOUND_REPORT, Perm.LOSTFOUND_MANAGE,
@@ -182,7 +186,7 @@ DEFAULT_ROLE_PERMISSIONS = {
     # Not users, role permissions, settings or backups: those stay with the administrator.
     Role.MANAGER: {
         Perm.DASHBOARD_VIEW, Perm.RESERVATIONS_VIEW, Perm.RESERVATIONS_MANAGE, Perm.FRONTDESK_CHECKIN,
-        Perm.GUESTS_VIEW, Perm.GUESTS_MANAGE, Perm.REQUESTS_MANAGE, Perm.REVIEWS_MANAGE,
+        Perm.GUESTS_VIEW, Perm.GUESTS_MANAGE, Perm.REQUESTS_MANAGE, Perm.REVIEWS_MANAGE, Perm.EVENTS_VIEW, Perm.EVENTS_MANAGE,
         Perm.BILLING_VIEW, Perm.BILLING_CHARGE, Perm.BILLING_PAYMENT, Perm.BILLING_VOID,
         Perm.ROOMS_VIEW, Perm.ROOMS_STATUS, Perm.ROOMS_MANAGE,
         Perm.HOUSEKEEPING_VIEW, Perm.HOUSEKEEPING_MANAGE, Perm.LOSTFOUND_REPORT, Perm.LOSTFOUND_MANAGE,
@@ -194,7 +198,7 @@ DEFAULT_ROLE_PERMISSIONS = {
     # Money: invoices, VAT, corporate accounts, cashier shifts, reports. Sees reservations and guests but cannot change them.
     Role.ACCOUNTANT: {
         Perm.BILLING_VIEW, Perm.BILLING_PAYMENT, Perm.BILLING_VOID, Perm.REPORTS_VIEW,
-        Perm.RESERVATIONS_VIEW, Perm.GUESTS_VIEW, Perm.INVENTORY_VIEW,
+        Perm.RESERVATIONS_VIEW, Perm.GUESTS_VIEW, Perm.INVENTORY_VIEW, Perm.EVENTS_VIEW,
     },
     # Runs the housekeeping board: creates, assigns and inspects tasks, sets room status. Does not clean rooms.
     Role.SUPERVISOR: {

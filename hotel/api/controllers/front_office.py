@@ -4,7 +4,7 @@ from ...core.errors import PermissionDenied
 from ...http.messages import Binary
 from ...core.permissions import Perm
 from ...core.validation import Bool, Int, Number
-from ...services import (BillingService, CashierService, CompanyService, DashboardService, GuestService,
+from ...services import (BillingService, CashierService, CompanyService, DashboardService, EventService, GuestService,
                          InvoiceService, LoyaltyService, PricingService, PrivacyService, ReservationService, RoomService,
                          WaitlistService)
 from ..router import Controller, delete, get, post, put
@@ -309,6 +309,51 @@ class WaitlistController(Controller):
     @delete_route("/stop-sells/{stop_id}", perm=Perm.ROOMS_MANAGE)
     def delete_stop_sell(self, stop_id):
         self.svc(WaitlistService).delete_stop_sell(stop_id)
+
+
+class EventController(Controller):
+    def ev(self) -> EventService:
+        return self.svc(EventService)
+
+    @get("/venues", perm=Perm.EVENTS_VIEW)
+    def venues(self):
+        return self.ev().venues()
+
+    @post("/venues", perm=Perm.EVENTS_MANAGE)
+    def create_venue(self):
+        return self.ev().save_venue(self.body)
+
+    @put("/venues/{venue_id}", perm=Perm.EVENTS_MANAGE)
+    def update_venue(self, venue_id):
+        return self.ev().save_venue(self.body, venue_id)
+
+    @delete("/venues/{venue_id}", perm=Perm.EVENTS_MANAGE)
+    def delete_venue(self, venue_id):
+        self.ev().delete_venue(venue_id)
+
+    @get("/events", perm=Perm.EVENTS_VIEW)
+    def events(self):
+        return self.ev().list(self.q("status", "active"), self.q("from"), self.q("to"))
+
+    @post("/events", perm=Perm.EVENTS_MANAGE)
+    def create(self):
+        return {**self.ev().create(self.body), "_created": True}
+
+    @get("/events/{event_id}", perm=Perm.EVENTS_VIEW)
+    def detail(self, event_id):
+        return self.ev().get(event_id)
+
+    @put("/events/{event_id}", perm=Perm.EVENTS_MANAGE)
+    def update(self, event_id):
+        return self.ev().update(event_id, self.body)
+
+    @post("/events/{event_id}/status", perm=Perm.EVENTS_MANAGE)
+    def status(self, event_id):
+        return self.ev().set_status(event_id, self.body.get("status"))
+
+    @post("/events/{event_id}/payments", perm=Perm.EVENTS_MANAGE)
+    def payment(self, event_id):
+        return self.ev().add_payment(event_id, self.body)
 
 
 class CashierController(Controller):

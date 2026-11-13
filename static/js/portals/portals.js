@@ -11,21 +11,21 @@ const PORTALS = {
   // Administrator: the whole hotel, plus users, roles, settings and the audit log.
   admin: {
     title: 'Administration', allow: (u) => u.role === 'admin', topAction: booking,
-    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
+    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'events', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'restaurant', 'tickets', 'menu', 'lost-found', 'reviews', '|',
       'rooms', 'inventory', 'reports', 'night-audit', 'roster', '|', 'users', 'roles', 'settings', 'audit'],
   },
   // Manager: every department, rates, reports, the audit log and closing the day — but not users, roles or settings.
   manager: {
     title: 'Management', allow: (u) => u.role === 'admin' || u.role === 'manager', topAction: booking,
-    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
+    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'events', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'restaurant', 'tickets', 'menu', 'lost-found', 'reviews', '|',
       'rooms', 'inventory', 'reports', 'night-audit', 'roster', 'audit'],
   },
   // Accountant: reports, tax invoices, corporate accounts and cashier shifts; reservations and guests are read-only.
   finance: {
     title: 'Accounting', allow: (u) => has(u, 'billing.view') && has(u, 'reports.view'),
-    keys: ['reports', 'invoices', 'companies', 'cashier', 'night-audit', '|', 'reservations', 'guests', 'inventory'],
+    keys: ['reports', 'invoices', 'companies', 'cashier', 'night-audit', '|', 'reservations', 'events', 'guests', 'inventory'],
     screens: { inventory: { label: 'Stock value' } },
   },
   // Maintenance technician: repair tickets, room list, found items and supplies.
@@ -49,7 +49,7 @@ const PORTALS = {
   // Front desk: reservations, guests, billing and guest services.
   staff: {
     title: 'Front desk', allow: (u) => has(u, 'dashboard.view'), topAction: booking,
-    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
+    keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'events', 'guests', 'cashier', 'companies', 'invoices', '|',
       'housekeeping', 'maintenance', 'requests', 'orders', 'lost-found', 'reviews', '|', 'rooms', 'inventory', 'supplies', 'reports'],
   },
   // Chef: kitchen order board, menu & recipes, kitchen stock and supply requests.

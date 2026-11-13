@@ -2,6 +2,7 @@
 from functools import cached_property
 
 from .finance import (AuditDayRepository, ChallengeRepository, CompanyRepository, EmailVerificationRepository,
+                      EventRepository, VenueRepository,
                       InvoiceRepository,
                       LedgerRepository, OutboxRepository, PasswordResetRepository, PromoRepository, RatePlanRepository,
                       SeasonRepository, ShiftRepository)
@@ -65,6 +66,8 @@ class Repositories:
     seasons = cached_property(lambda self: SeasonRepository(self.conn))
     promos = cached_property(lambda self: PromoRepository(self.conn))
     rate_plans = cached_property(lambda self: RatePlanRepository(self.conn))
+    venues = cached_property(lambda self: VenueRepository(self.conn))
+    events = cached_property(lambda self: EventRepository(self.conn))
     shifts = cached_property(lambda self: ShiftRepository(self.conn))
     invoices = cached_property(lambda self: InvoiceRepository(self.conn))
     audit_days = cached_property(lambda self: AuditDayRepository(self.conn))

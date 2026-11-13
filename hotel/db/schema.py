@@ -366,6 +366,7 @@ from .schema_v8 import MIGRATION_8  # noqa: E402
 from .schema_v9 import MIGRATION_9  # noqa: E402
 from .schema_v10 import MIGRATION_10  # noqa: E402
 from .schema_v11 import MIGRATION_11  # noqa: E402
+from .schema_v12 import MIGRATION_12  # noqa: E402
 
 MIGRATIONS = [
     (1, "initial schema", MIGRATION_1),
@@ -379,4 +380,5 @@ MIGRATIONS = [
     (9, "payments in a second currency", MIGRATION_9),
     (10, "staff rosters and attendance", MIGRATION_10),
     (11, "restaurant point of sale", MIGRATION_11),
+    (12, "banquet and event bookings", MIGRATION_12),
 ]

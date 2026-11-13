@@ -39,6 +39,14 @@ python3 run.py --open     # also opens your browser
 
 Everyone signs in at `/login` and is sent to their own portal automatically.
 
+**If the demo logins do not work or there are no rooms**, the server is using a database that is not the demo hotel: one created with `--no-demo` (or by Docker, which starts empty), or one made by an older version before these roles existed. The start-up message says which. To get the full demo hotel, run:
+
+```bash
+python3 run.py --fresh-demo
+```
+
+The database you had is renamed and kept, not deleted.
+
 **For real use** start with an empty hotel:
 
 ```bash

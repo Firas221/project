@@ -335,6 +335,10 @@ class DemoData:
                               adjust_pct=25, min_nights=2)
         self.r.seasons.insert(name="Summer low season", start_date=f"{year}-07-01", end_date=f"{year}-08-31",
                               adjust_pct=-15, min_nights=1)
+        self.r.venues.insert(name="Nile Ballroom", capacity=300, hourly_rate=6000, day_rate=40000,
+                             description="Riverside ballroom for weddings and gala dinners")
+        self.r.venues.insert(name="Lotus Meeting Room", capacity=24, hourly_rate=900, day_rate=6000,
+                             description="Boardroom with screen and video conferencing")
         for n in range(1, 9):
             self.r.restaurant_tables.insert(name=f"Table {n}", seats=2 if n <= 2 else 4 if n <= 6 else 8,
                                             area="Terrace" if n > 6 else "Dining room")

@@ -44,6 +44,16 @@ class HotelApp:
             self.bootstrap_info = Bootstrapper(conn, self.hasher).run(self.config.seed_demo)
         return self.bootstrap_info
 
+    def describe(self) -> tuple:
+        """(number of rooms, number of demo staff accounts present) — used to tell the operator what they started."""
+        from .db.seed import DEMO_PASSWORDS
+        names = [u for u in DEMO_PASSWORDS if u != "guest"]
+        with self.db.unit_of_work(write=False) as conn:
+            rooms = conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0]
+            marks = ",".join("?" for _ in names)
+            present = conn.execute(f"SELECT COUNT(*) FROM users WHERE username IN ({marks})", names).fetchone()[0]
+        return rooms, present
+
     # ------------------------------------------------------------ background jobs
     def start_background_jobs(self) -> None:
         threading.Thread(target=self._loop, name="hotel-jobs", daemon=True).start()

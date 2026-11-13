@@ -49,6 +49,65 @@ class RatePlanRepository(BaseRepository):
         return self.fetch_all(f"{sql} ORDER BY {self.default_order}")
 
 
+class VenueRepository(BaseRepository):
+    table = "venues"
+    columns = ("name", "capacity", "hourly_rate", "day_rate", "description", "active")
+    default_order = "t.name"
+    entity_label = "Venue"
+
+
+class EventRepository(BaseRepository):
+    table = "events"
+    columns = ("code", "venue_id", "title", "organizer_name", "organizer_phone", "organizer_email", "company_id", "event_date",
+               "start_time", "end_time", "attendees", "setup", "status", "venue_charge", "catering_per_person", "extras",
+               "extras_note", "notes", "invoice_number", "subtotal", "service_charge", "vat", "city_tax", "total", "completed_at",
+               "created_by")
+    select_sql = ("SELECT t.*, v.name AS venue_name, v.capacity AS venue_capacity, c.name AS company_name,"
+                  " ROUND(COALESCE((SELECT SUM(amount) FROM event_payments p WHERE p.event_id = t.id), 0), 2) AS paid"
+                  " FROM events t JOIN venues v ON v.id = t.venue_id LEFT JOIN companies c ON c.id = t.company_id")
+    default_order = "t.event_date, t.start_time"
+    entity_label = "Event"
+
+    def search(self, status=None, date_from=None, date_to=None, venue_id=None) -> list:
+        qb = QueryBuilder(self.select_sql)
+        if status == "active":
+            qb.add("t.status IN ('inquiry', 'confirmed')")
+        else:
+            qb.add_if(status, "t.status = ?", status)
+        qb.add_if(date_from, "t.event_date >= ?", date_from)
+        qb.add_if(date_to, "t.event_date <= ?", date_to)
+        qb.add_if(venue_id, "t.venue_id = ?", venue_id)
+        return self.fetch_all(qb.sql(self.default_order, 1000), qb.args)
+
+    def clash(self, venue_id: int, day: str, start: str, end: str, exclude_id: int = None):
+        """The code of a confirmed event that uses the venue at an overlapping time on that day, if any."""
+        sql = ("SELECT code FROM events WHERE venue_id = ? AND event_date = ? AND status = 'confirmed'"
+               " AND start_time < ? AND end_time > ?")
+        args = [venue_id, day, end, start]
+        if exclude_id:
+            sql += " AND id <> ?"
+            args.append(exclude_id)
+        return self.scalar(sql, args)
+
+    def next_number(self, year: int) -> str:
+        prefix = f"EVT-{year}-"
+        last = self.scalar("SELECT invoice_number FROM events WHERE invoice_number LIKE ? ORDER BY invoice_number DESC LIMIT 1",
+                           (prefix + "%",))
+        return f"{prefix}{(int(last.rsplit('-', 1)[1]) + 1 if last else 1):06d}"
+
+    def payments(self, event_id: int) -> list:
+        return self.fetch_all("SELECT p.*, u.full_name AS created_by_name FROM event_payments p LEFT JOIN users u ON u.id = p.created_by"
+                              " WHERE p.event_id = ? ORDER BY p.id", (event_id,))
+
+    def add_payment(self, event_id, amount, method, reference, shift_id, created_by) -> None:
+        self.execute("INSERT INTO event_payments(event_id, amount, method, reference, shift_id, created_by) VALUES (?,?,?,?,?,?)",
+                     (event_id, amount, method, reference, shift_id, created_by))
+
+    def completed_between(self, start: str, end: str) -> list:
+        return self.fetch_all(self.select_sql + " WHERE t.status = 'completed' AND date(t.completed_at) BETWEEN ? AND ?"
+                              " ORDER BY t.id DESC", (start, end))
+
+
 class PromoRepository(BaseRepository):
     table = "promo_codes"
     columns = ("code", "description", "discount_pct", "valid_from", "valid_to", "max_uses", "used_count", "online_only",
@@ -74,7 +133,8 @@ class ShiftRepository(BaseRepository):
         " ROUND(COALESCE((SELECT SUM(amount) FROM payments p WHERE p.shift_id = t.id),0),2) AS total_taken,"
         " (SELECT COUNT(*) FROM payments p WHERE p.shift_id = t.id) AS payment_count,"
         " ROUND(COALESCE((SELECT SUM(total) FROM restaurant_checks k WHERE k.shift_id = t.id AND k.status='paid' AND k.paid_method='cash'),0),2) AS restaurant_cash,"
-        " ROUND(COALESCE((SELECT SUM(total) FROM restaurant_checks k WHERE k.shift_id = t.id AND k.status='paid'),0),2) AS restaurant_taken"
+        " ROUND(COALESCE((SELECT SUM(total) FROM restaurant_checks k WHERE k.shift_id = t.id AND k.status='paid'),0),2) AS restaurant_taken,"
+        " ROUND(COALESCE((SELECT SUM(amount) FROM event_payments e WHERE e.shift_id = t.id AND e.method='cash'),0),2) AS events_cash"
         " FROM cashier_shifts t JOIN users u ON u.id = t.user_id"
     )
     default_order = "t.id DESC"

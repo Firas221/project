@@ -11,12 +11,14 @@ import * as admin from '../views/admin.js';
 import { waitlistView } from '../views/waitlist.js';
 import { myShiftsView, rosterView } from '../views/roster.js';
 import { checkView, receiptView, restaurantView, ticketsView } from '../views/restaurant.js';
+import { eventView, eventsView } from '../views/events.js';
 
 export const SCREENS = {
   dashboard: { label: 'Dashboard', icon: 'dashboard', perm: 'dashboard.view', view: fd.dashboardView, live: 60 },
   calendar: { label: 'Room calendar', icon: 'calendar', perm: 'reservations.view', view: fd.calendarView },
   reservations: { label: 'Reservations', icon: 'reservations', perm: 'reservations.view', view: fd.reservationsView },
   waitlist: { label: 'Waiting list', icon: 'list', perm: 'reservations.view', view: waitlistView, live: 60 },
+  events: { label: 'Events', icon: 'building', perm: 'events.view', view: eventsView },
   guests: { label: 'Guests', icon: 'guests', perm: 'guests.view', view: guests.guestsView },
   housekeeping: { label: 'Housekeeping', icon: 'housekeeping', perm: 'housekeeping.view', view: ops.housekeepingBoardView, live: 30 },
   maintenance: { label: 'Maintenance', icon: 'wrench', perm: 'maintenance.report', view: ops.maintenanceView, live: 60 },
@@ -54,6 +56,7 @@ export const DETAIL_ROUTES = [
   { pattern: /^inventory\/(\d+)$/, nav: 'inventory', perm: 'inventory.view', view: inv.itemView },
   { pattern: /^restaurant\/check\/(\d+)$/, nav: 'restaurant', perm: 'restaurant.serve', view: checkView },
   { pattern: /^restaurant\/receipt\/(\d+)$/, nav: 'restaurant', perm: 'restaurant.serve', view: receiptView },
+  { pattern: /^events\/(\d+)$/, nav: 'events', perm: 'events.view', view: eventView },
   { pattern: /^tax$/, nav: 'reports', perm: 'reports.view', view: fin.taxView },
   { pattern: /^order-history$/, nav: 'orders', perm: 'kitchen.view', view: kitchen.deliveredView },
 ];

@@ -2,7 +2,7 @@
 from .admin import (AlertController, AuditController, RosterController, ExportController, ReportController, RoleController, SettingsController,
                     UserController)
 from .auth import AuthController
-from .front_office import (CashierController, CompanyController, DashboardController, GuestController,
+from .front_office import (CashierController, CompanyController, DashboardController, EventController, GuestController,
                            InvoiceController, ReservationController, RoomController, WaitlistController)
 from .inventory import InventoryController, PurchasingController, StockRequestController
 from .operations import (GuestRequestController, HousekeepingController, KitchenController, LostFoundController,
@@ -12,7 +12,7 @@ from .portal import GuestPortalController, PublicController
 CONTROLLERS = [
     AuthController, PublicController, GuestPortalController,
     DashboardController, ReservationController, InvoiceController, GuestController, RoomController,
-    WaitlistController, CashierController, CompanyController,
+    WaitlistController, EventController, CashierController, CompanyController,
     HousekeepingController, MaintenanceController, GuestRequestController, LostFoundController, ReviewController,
     KitchenController, RestaurantController,
     InventoryController, PurchasingController, StockRequestController,
