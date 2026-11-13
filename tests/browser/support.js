@@ -18,6 +18,7 @@ const USERS = {
   maid: ['maid', 'MaidPass123', '/housekeeping'],
   tech: ['tech', 'TechPass123', '/maintenance'],
   store: ['store', 'StorePass123', '/store'],
+  waiter: ['waiter', 'WaiterPass123', '/restaurant'],
   guest: ['amelia.hart@example.com', 'GuestPass123', '/account'],
 };
 

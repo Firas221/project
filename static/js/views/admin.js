@@ -5,7 +5,7 @@ import {
   pager, selectField, showSecret, table, toast,
 } from '../core/ui.js';
 
-const ROLE_OPTIONS = [['staff', 'Front desk staff'], ['manager', 'Manager'], ['accountant', 'Accountant'], ['chef', 'Chef / kitchen'],
+const ROLE_OPTIONS = [['staff', 'Front desk staff'], ['manager', 'Manager'], ['accountant', 'Accountant'], ['chef', 'Chef / kitchen'], ['waiter', 'Waiter'],
   ['supervisor', 'Housekeeping supervisor'], ['housekeeper', 'Housekeeper'], ['maintenance', 'Maintenance technician'],
   ['storekeeper', 'Storekeeper'], ['admin', 'Administrator']];
 

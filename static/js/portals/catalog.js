@@ -10,6 +10,7 @@ import * as fin from '../views/finance.js';
 import * as admin from '../views/admin.js';
 import { waitlistView } from '../views/waitlist.js';
 import { myShiftsView, rosterView } from '../views/roster.js';
+import { checkView, receiptView, restaurantView, ticketsView } from '../views/restaurant.js';
 
 export const SCREENS = {
   dashboard: { label: 'Dashboard', icon: 'dashboard', perm: 'dashboard.view', view: fd.dashboardView, live: 60 },
@@ -32,6 +33,8 @@ export const SCREENS = {
   supplies: { label: 'Supplies', icon: 'inventory', perm: 'inventory.request', view: inv.mySuppliesView },
   reports: { label: 'Reports', icon: 'reports', perm: 'reports.view', view: fin.reportsView },
   'night-audit': { label: 'Night audit', icon: 'moon', perm: 'reports.view', view: fin.nightAuditView },
+  restaurant: { label: 'Restaurant', icon: 'kitchen', perm: 'restaurant.serve', view: restaurantView, live: 30 },
+  tickets: { label: 'Restaurant tickets', icon: 'list', perm: 'kitchen.view', view: ticketsView, live: 15 },
   roster: { label: 'Staff roster', icon: 'calendar', perm: 'roster.manage', view: rosterView },
   'my-shifts': { label: 'My shifts', icon: 'calendar', perm: null, view: myShiftsView },
   users: { label: 'Users', icon: 'guests', perm: 'users.manage', view: admin.usersView },
@@ -49,6 +52,8 @@ export const DETAIL_ROUTES = [
   { pattern: /^guest-register$/, nav: 'guests', perm: 'guests.view', view: guests.registerView },
   { pattern: /^companies\/(\d+)$/, nav: 'companies', perm: 'billing.view', view: fin.companyView },
   { pattern: /^inventory\/(\d+)$/, nav: 'inventory', perm: 'inventory.view', view: inv.itemView },
+  { pattern: /^restaurant\/check\/(\d+)$/, nav: 'restaurant', perm: 'restaurant.serve', view: checkView },
+  { pattern: /^restaurant\/receipt\/(\d+)$/, nav: 'restaurant', perm: 'restaurant.serve', view: receiptView },
   { pattern: /^tax$/, nav: 'reports', perm: 'reports.view', view: fin.taxView },
   { pattern: /^order-history$/, nav: 'orders', perm: 'kitchen.view', view: kitchen.deliveredView },
 ];

@@ -72,7 +72,9 @@ class ShiftRepository(BaseRepository):
         " ROUND(COALESCE((SELECT SUM(foreign_amount) FROM payments p WHERE p.shift_id = t.id AND p.method='cash' AND p.currency<>''),0),2) AS foreign_cash_taken,"
         " (SELECT MAX(currency) FROM payments p WHERE p.shift_id = t.id AND p.method='cash' AND p.currency<>'') AS foreign_currency,"
         " ROUND(COALESCE((SELECT SUM(amount) FROM payments p WHERE p.shift_id = t.id),0),2) AS total_taken,"
-        " (SELECT COUNT(*) FROM payments p WHERE p.shift_id = t.id) AS payment_count"
+        " (SELECT COUNT(*) FROM payments p WHERE p.shift_id = t.id) AS payment_count,"
+        " ROUND(COALESCE((SELECT SUM(total) FROM restaurant_checks k WHERE k.shift_id = t.id AND k.status='paid' AND k.paid_method='cash'),0),2) AS restaurant_cash,"
+        " ROUND(COALESCE((SELECT SUM(total) FROM restaurant_checks k WHERE k.shift_id = t.id AND k.status='paid'),0),2) AS restaurant_taken"
         " FROM cashier_shifts t JOIN users u ON u.id = t.user_id"
     )
     default_order = "t.id DESC"

@@ -12,14 +12,14 @@ const PORTALS = {
   admin: {
     title: 'Administration', allow: (u) => u.role === 'admin', topAction: booking,
     keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
-      'housekeeping', 'maintenance', 'requests', 'orders', 'menu', 'lost-found', 'reviews', '|',
+      'housekeeping', 'maintenance', 'requests', 'orders', 'restaurant', 'tickets', 'menu', 'lost-found', 'reviews', '|',
       'rooms', 'inventory', 'reports', 'night-audit', 'roster', '|', 'users', 'roles', 'settings', 'audit'],
   },
   // Manager: every department, rates, reports, the audit log and closing the day — but not users, roles or settings.
   manager: {
     title: 'Management', allow: (u) => u.role === 'admin' || u.role === 'manager', topAction: booking,
     keys: ['dashboard', 'calendar', 'reservations', 'waitlist', 'guests', 'cashier', 'companies', 'invoices', '|',
-      'housekeeping', 'maintenance', 'requests', 'orders', 'menu', 'lost-found', 'reviews', '|',
+      'housekeeping', 'maintenance', 'requests', 'orders', 'restaurant', 'tickets', 'menu', 'lost-found', 'reviews', '|',
       'rooms', 'inventory', 'reports', 'night-audit', 'roster', 'audit'],
   },
   // Accountant: reports, tax invoices, corporate accounts and cashier shifts; reservations and guests are read-only.
@@ -33,6 +33,12 @@ const PORTALS = {
     title: 'Maintenance', allow: (u) => has(u, 'maintenance.manage'),
     keys: ['maintenance', 'rooms', 'lost-found', 'supplies'],
     screens: { maintenance: { label: 'Repair tickets' }, rooms: { label: 'Rooms' } },
+  },
+  // Waiter: the restaurant floor, checks and receipts.
+  restaurant: {
+    title: 'Restaurant', allow: (u) => has(u, 'restaurant.serve'),
+    keys: ['restaurant', 'tickets', 'cashier', 'maintenance'],
+    screens: { restaurant: { label: 'Tables' }, cashier: { label: 'My till', perm: 'restaurant.serve' }, tickets: { label: 'Kitchen queue', perm: 'restaurant.serve' }, maintenance: { label: 'Report an issue' } },
   },
   // Storekeeper: stock, purchasing and the departments' supply requests.
   store: {
@@ -49,7 +55,7 @@ const PORTALS = {
   // Chef: kitchen order board, menu & recipes, kitchen stock and supply requests.
   kitchen: {
     title: 'Kitchen', allow: (u) => has(u, 'kitchen.view'),
-    keys: ['orders', 'history', 'menu', 'supplies', 'inventory', 'maintenance'],
+    keys: ['orders', 'tickets', 'history', 'menu', 'supplies', 'inventory', 'maintenance'],
     screens: {
       orders: { label: 'Order board' },
       history: { label: 'Order history', icon: 'list', perm: 'kitchen.view', view: deliveredView },

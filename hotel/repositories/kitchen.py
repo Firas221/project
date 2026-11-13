@@ -28,6 +28,58 @@ class MenuRepository(BaseRepository):
         return self.scalar("SELECT 1 FROM order_lines WHERE menu_item_id=? LIMIT 1", (menu_item_id,)) is not None
 
 
+class RestaurantTableRepository(BaseRepository):
+    table = "restaurant_tables"
+    columns = ("name", "seats", "area", "active")
+    default_order = "t.area, t.name"
+    entity_label = "Table"
+
+
+class CheckRepository(BaseRepository):
+    table = "restaurant_checks"
+    columns = ("code", "table_id", "table_name", "covers", "customer_name", "status", "reservation_id", "subtotal",
+               "service_charge", "vat", "city_tax", "total", "paid_method", "receipt_number", "shift_id", "notes", "opened_by",
+               "closed_by", "closed_at")
+    select_sql = ("SELECT t.*, o.full_name AS opened_by_name, c.full_name AS closed_by_name, r.code AS reservation_code,"
+                  " rm.number AS room_number FROM restaurant_checks t LEFT JOIN users o ON o.id = t.opened_by"
+                  " LEFT JOIN users c ON c.id = t.closed_by LEFT JOIN reservations r ON r.id = t.reservation_id"
+                  " LEFT JOIN rooms rm ON rm.id = r.room_id")
+    default_order = "t.id DESC"
+    entity_label = "Check"
+
+    def open_checks(self) -> list:
+        return self.fetch_all(self.select_sql + " WHERE t.status = 'open' ORDER BY t.id")
+
+    def closed_between(self, start: str, end: str, limit: int = 2000) -> list:
+        return self.fetch_all(self.select_sql + " WHERE t.status IN ('paid', 'charged') AND date(t.closed_at) BETWEEN ? AND ?"
+                              " ORDER BY t.id DESC LIMIT ?", (start, end, limit))
+
+    def next_receipt(self, year: int) -> str:
+        prefix = f"RCP-{year}-"
+        last = self.scalar("SELECT receipt_number FROM restaurant_checks WHERE receipt_number LIKE ? ORDER BY receipt_number DESC LIMIT 1",
+                           (prefix + "%",))
+        return f"{prefix}{(int(last.rsplit('-', 1)[1]) + 1 if last else 1):06d}"
+
+    def lines(self, check_id: int) -> list:
+        return self.fetch_all("SELECT * FROM restaurant_check_lines WHERE check_id = ? ORDER BY id", (check_id,))
+
+    def add_line(self, check_id, menu_item_id, name, quantity, unit_price, notes, created_by) -> int:
+        return self.execute("INSERT INTO restaurant_check_lines(check_id, menu_item_id, name, quantity, unit_price, notes, created_by)"
+                            " VALUES (?,?,?,?,?,?,?)", (check_id, menu_item_id, name, quantity, unit_price, notes, created_by)).lastrowid
+
+    def line(self, line_id: int):
+        return self.fetch_one("SELECT * FROM restaurant_check_lines WHERE id = ?", (line_id,))
+
+    def set_line_status(self, line_id: int, status: str) -> None:
+        self.execute("UPDATE restaurant_check_lines SET status = ? WHERE id = ?", (status, line_id))
+
+    def kitchen_tickets(self) -> list:
+        """Dishes sent to the kitchen and not yet ready, oldest first."""
+        return self.fetch_all(
+            "SELECT l.id, l.name, l.quantity, l.notes, l.created_at, c.id AS check_id, c.code, c.table_name FROM restaurant_check_lines l"
+            " JOIN restaurant_checks c ON c.id = l.check_id WHERE l.status = 'sent' AND c.status = 'open' ORDER BY l.id")
+
+
 class OrderRepository(BaseRepository):
     table = "orders"
     columns = ("code", "reservation_id", "status", "notes", "total", "placed_via", "created_by", "updated_at",

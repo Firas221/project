@@ -333,3 +333,19 @@ td.roster-cell { cursor: pointer; min-width: 92px; vertical-align: top; }
 td.roster-cell:hover { background: var(--surface-2); }
 .shift-chip { display: block; width: 100%; margin: 2px 0; padding: 3px 6px; border: 0; border-radius: 6px; background: var(--info-bg); color: var(--info); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .shift-chip:hover { filter: brightness(.95); }
+
+/* restaurant */
+.floor-area { font-size: 14px; color: var(--text-2); margin: 18px 0 8px; }
+.table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.table-card { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; text-align: start; cursor: pointer; min-height: 96px; box-shadow: var(--shadow); }
+.table-card:hover { border-color: var(--primary); }
+.table-card.busy { background: var(--info-bg); border-color: var(--info); }
+.table-total { font-size: 18px; font-weight: 800; }
+.dish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.dish { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); font: inherit; text-align: start; cursor: pointer; }
+.dish:hover { border-color: var(--primary); background: var(--surface); }
+.dish span { color: var(--text-2); font-size: 13px; }
+tr.struck td { color: var(--muted); text-decoration: line-through; }
+tr.struck td.actions { text-decoration: none; }
+.ticket-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.receipt { max-width: 560px; }

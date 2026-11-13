@@ -260,11 +260,17 @@ class InvoiceService(Service):
 
 
 class CashierService(Service):
+    def _may_hold_a_till(self) -> None:
+        """Anyone who takes money can run a cashier shift: the front desk, and restaurant staff."""
+        if not self.actor.can_any(Perm.BILLING_PAYMENT, Perm.RESTAURANT_SERVE):
+            from ..core.errors import PermissionDenied
+            raise PermissionDenied()
+
     def current(self):
         return self.repos.shifts.open_for(self.actor_id)
 
     def open(self, opening_float: float) -> dict:
-        self.require(Perm.BILLING_PAYMENT)
+        self._may_hold_a_till()
         if self.current():
             raise Conflict("You already have an open shift")
         try:
@@ -278,7 +284,7 @@ class CashierService(Service):
         return self.repos.shifts.get(sid)
 
     def close(self, counted_cash, notes: str = "") -> dict:
-        self.require(Perm.BILLING_PAYMENT)
+        self._may_hold_a_till()
         shift = self.current()
         if not shift:
             raise Conflict("You have no open shift")
@@ -286,7 +292,7 @@ class CashierService(Service):
             counted = money(float(counted_cash))
         except (TypeError, ValueError):
             raise ValidationError("Counted cash must be a number", field="counted_cash")
-        expected = money(shift["opening_float"] + shift["cash_taken"])
+        expected = money(shift["opening_float"] + shift["cash_taken"] + shift["restaurant_cash"])
         self.repos.shifts.update(shift["id"], closed_at=now_str(), expected_cash=expected, counted_cash=counted,
                                  variance=money(counted - expected), notes=str(notes or "")[:500])
         self.audit("shift_close", "shift", shift["id"], f"expected {expected:.2f} counted {counted:.2f}")

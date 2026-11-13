@@ -12,6 +12,7 @@ const PORTALS = [
   ['/finance', 'Accounting', (u) => u.permissions.includes('billing.view') && u.permissions.includes('reports.view')],
   ['/maintenance', 'Maintenance', (u) => u.permissions.includes('maintenance.manage')],
   ['/store', 'Store', (u) => u.permissions.includes('inventory.manage')],
+  ['/restaurant', 'Restaurant', (u) => u.permissions.includes('restaurant.serve')],
 ];
 
 export const can = (user, perm) => !perm || user.role === 'admin' || user.permissions.includes(perm);

@@ -103,6 +103,7 @@ class ReportService(Service):
             "top_items": r.movements.consumption(("sale", "return"), start, end),
             "usage": r.movements.consumption(("issue", "consume"), start, end),
             "housekeeping": r.housekeeping.productivity(start, end),
+            "restaurant": {k: v for k, v in self._restaurant(start, end).items() if k != "receipts"},
             "reviews": r.reviews.average(),
         }
 
@@ -111,9 +112,16 @@ class ReportService(Service):
         self.require(Perm.REPORTS_VIEW)
         start, end = self._range(date_from, date_to)
         invoices = self.repos.invoices.search(start, end, limit=5000)
-        return {"from": start, "to": end, "invoices": invoices,
-                "totals": {k: money(sum(i[k] for i in invoices))
-                           for k in ("subtotal", "service_charge", "vat", "city_tax", "total")}}
+        restaurant = self._restaurant(start, end)
+        keys = ("subtotal", "service_charge", "vat", "city_tax", "total")
+        totals = {k: money(sum(i[k] for i in invoices)) for k in keys}
+        return {"from": start, "to": end, "invoices": invoices, "totals": totals,
+                # restaurant receipts are tax documents too: the VAT return needs both
+                "restaurant": restaurant, "grand_totals": {k: money(totals[k] + restaurant[k]) for k in keys}}
+
+    def _restaurant(self, start: str, end: str) -> dict:
+        from .restaurant import RestaurantService
+        return self.use(RestaurantService).sales(start, end)
 
 
 class NightAuditService(Service):

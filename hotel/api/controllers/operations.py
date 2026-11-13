@@ -2,7 +2,7 @@
 from ...core.permissions import Perm
 from ...core.validation import Bool, Int
 from ...services import (GuestRequestService, HousekeepingService, LostFoundService, MaintenanceService, MenuService,
-                         OrderService, ReviewService)
+                         OrderService, RestaurantService, ReviewService)
 from ..router import Controller, delete, get, post, put
 
 
@@ -143,3 +143,76 @@ class KitchenController(Controller):
 
 
 _ = Int
+
+
+class RestaurantController(Controller):
+    def rs(self) -> RestaurantService:
+        return self.svc(RestaurantService)
+
+    @get("/restaurant/floor", perm=Perm.RESTAURANT_SERVE)
+    def floor(self):
+        return self.rs().floor()
+
+    @get("/restaurant/menu", perm=Perm.RESTAURANT_SERVE)
+    def menu(self):
+        return self.rs().menu()
+
+    @get("/restaurant/in-house", perm=Perm.RESTAURANT_SERVE)
+    def in_house(self):
+        return self.rs().in_house()
+
+    @get("/restaurant/tables", perm=Perm.RESTAURANT_SERVE)
+    def tables(self):
+        return self.rs().tables()
+
+    @post("/restaurant/tables", perm=Perm.RESTAURANT_MANAGE)
+    def create_table(self):
+        return self.rs().save_table(self.body)
+
+    @put("/restaurant/tables/{table_id}", perm=Perm.RESTAURANT_MANAGE)
+    def update_table(self, table_id):
+        return self.rs().save_table(self.body, table_id)
+
+    @delete("/restaurant/tables/{table_id}", perm=Perm.RESTAURANT_MANAGE)
+    def delete_table(self, table_id):
+        self.rs().delete_table(table_id)
+
+    @post("/restaurant/checks", perm=Perm.RESTAURANT_SERVE)
+    def open_check(self):
+        return {**self.rs().open_check(self.body), "_created": True}
+
+    @get("/restaurant/checks/{check_id}", perm=Perm.RESTAURANT_SERVE)
+    def check(self, check_id):
+        return self.rs().check(check_id)
+
+    @post("/restaurant/checks/{check_id}/lines", perm=Perm.RESTAURANT_SERVE)
+    def add_lines(self, check_id):
+        return self.rs().add_lines(check_id, self.body)
+
+    @delete("/restaurant/checks/{check_id}/lines/{line_id}", perm=Perm.RESTAURANT_SERVE)
+    def void_line(self, check_id, line_id):
+        return self.rs().void_line(check_id, line_id)
+
+    @post("/restaurant/checks/{check_id}/pay", perm=Perm.RESTAURANT_SERVE)
+    def pay(self, check_id):
+        return self.rs().pay(check_id, self.body.get("method"))
+
+    @post("/restaurant/checks/{check_id}/charge", perm=Perm.RESTAURANT_SERVE)
+    def charge(self, check_id):
+        return self.rs().charge_to_room(check_id, self.body.get("reservation_id"))
+
+    @post("/restaurant/checks/{check_id}/void", perm=Perm.RESTAURANT_MANAGE)
+    def void(self, check_id):
+        return self.rs().void_check(check_id, self.body.get("reason"))
+
+    @get("/restaurant/checks/{check_id}/receipt", perm=Perm.RESTAURANT_SERVE)
+    def receipt(self, check_id):
+        return self.rs().receipt(check_id)
+
+    @get("/restaurant/tickets")
+    def tickets(self):
+        return self.rs().tickets()
+
+    @post("/restaurant/tickets/{line_id}/ready", perm=Perm.KITCHEN_ORDERS)
+    def ready(self, line_id):
+        self.rs().mark_ready(line_id)

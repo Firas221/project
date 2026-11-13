@@ -20,11 +20,12 @@ class Role:
     SUPERVISOR = "supervisor"        # housekeeping supervisor: assigns and inspects, does not clean
     MAINTENANCE = "maintenance"      # maintenance technician
     STOREKEEPER = "storekeeper"
+    WAITER = "waiter"                # restaurant: takes orders at the tables and settles the bill
     ACCOUNTANT = "accountant"
     MANAGER = "manager"              # runs the hotel day to day; no users, settings or backups
     GUEST = "guest"
 
-    EDITABLE = (MANAGER, STAFF, ACCOUNTANT, CHEF, SUPERVISOR, HOUSEKEEPER, MAINTENANCE, STOREKEEPER)
+    EDITABLE = (MANAGER, STAFF, ACCOUNTANT, CHEF, WAITER, SUPERVISOR, HOUSEKEEPER, MAINTENANCE, STOREKEEPER)
     EMPLOYEES = (ADMIN,) + EDITABLE
     ALL = EMPLOYEES + (GUEST,)
 
@@ -34,6 +35,7 @@ class Role:
         STAFF: "Front desk staff",
         ACCOUNTANT: "Accountant",
         CHEF: "Chef / kitchen",
+        WAITER: "Waiter",
         SUPERVISOR: "Housekeeping supervisor",
         HOUSEKEEPER: "Housekeeper",
         MAINTENANCE: "Maintenance technician",
@@ -47,6 +49,7 @@ class Role:
         STAFF: "/staff",
         ACCOUNTANT: "/finance",
         CHEF: "/kitchen",
+        WAITER: "/restaurant",
         SUPERVISOR: "/housekeeping",
         HOUSEKEEPER: "/housekeeping",
         MAINTENANCE: "/maintenance",
@@ -94,6 +97,8 @@ class Perm:
     KITCHEN_ORDERS = "kitchen.orders"
     MENU_MANAGE = "menu.manage"
     ORDERS_CREATE = "orders.create"
+    RESTAURANT_SERVE = "restaurant.serve"
+    RESTAURANT_MANAGE = "restaurant.manage"
 
     REQUESTS_MANAGE = "requests.manage"
     LOSTFOUND_REPORT = "lostfound.report"
@@ -141,6 +146,8 @@ PERMISSION_CATALOG = (
     (Perm.KITCHEN_ORDERS, "Kitchen", "Prepare orders and update their status"),
     (Perm.MENU_MANAGE, "Kitchen", "Manage the menu and recipes"),
     (Perm.ORDERS_CREATE, "Kitchen", "Place room-service orders for guests"),
+    (Perm.RESTAURANT_SERVE, "Restaurant", "Open tables, take orders and settle checks"),
+    (Perm.RESTAURANT_MANAGE, "Restaurant", "Set up tables and void checks"),
     (Perm.INVENTORY_VIEW, "Inventory", "View stock levels and movements"),
     (Perm.INVENTORY_REQUEST, "Inventory", "Request supplies from the store"),
     (Perm.INVENTORY_APPROVE, "Inventory", "Approve and issue supply requests"),
@@ -180,7 +187,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         Perm.ROOMS_VIEW, Perm.ROOMS_STATUS, Perm.ROOMS_MANAGE,
         Perm.HOUSEKEEPING_VIEW, Perm.HOUSEKEEPING_MANAGE, Perm.LOSTFOUND_REPORT, Perm.LOSTFOUND_MANAGE,
         Perm.MAINTENANCE_VIEW, Perm.MAINTENANCE_REPORT, Perm.MAINTENANCE_MANAGE,
-        Perm.KITCHEN_VIEW, Perm.ORDERS_CREATE, Perm.MENU_MANAGE,
+        Perm.KITCHEN_VIEW, Perm.ORDERS_CREATE, Perm.MENU_MANAGE, Perm.RESTAURANT_SERVE, Perm.RESTAURANT_MANAGE,
         Perm.INVENTORY_VIEW, Perm.INVENTORY_REQUEST, Perm.INVENTORY_APPROVE, Perm.INVENTORY_MANAGE, Perm.PURCHASING_MANAGE,
         Perm.REPORTS_VIEW, Perm.NIGHT_AUDIT_CLOSE, Perm.AUDIT_VIEW, Perm.ROSTER_MANAGE,
     },
@@ -199,6 +206,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         Perm.MAINTENANCE_VIEW, Perm.MAINTENANCE_REPORT, Perm.MAINTENANCE_MANAGE, Perm.ROOMS_VIEW,
         Perm.LOSTFOUND_REPORT, Perm.INVENTORY_REQUEST,
     },
+    Role.WAITER: {Perm.RESTAURANT_SERVE, Perm.MAINTENANCE_REPORT},
     Role.STOREKEEPER: {
         Perm.INVENTORY_VIEW, Perm.INVENTORY_MANAGE, Perm.INVENTORY_APPROVE, Perm.INVENTORY_REQUEST,
         Perm.PURCHASING_MANAGE, Perm.MAINTENANCE_REPORT,

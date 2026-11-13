@@ -6,7 +6,7 @@ from .front_office import (CashierController, CompanyController, DashboardContro
                            InvoiceController, ReservationController, RoomController, WaitlistController)
 from .inventory import InventoryController, PurchasingController, StockRequestController
 from .operations import (GuestRequestController, HousekeepingController, KitchenController, LostFoundController,
-                         MaintenanceController, ReviewController)
+                         MaintenanceController, RestaurantController, ReviewController)
 from .portal import GuestPortalController, PublicController
 
 CONTROLLERS = [
@@ -14,7 +14,7 @@ CONTROLLERS = [
     DashboardController, ReservationController, InvoiceController, GuestController, RoomController,
     WaitlistController, CashierController, CompanyController,
     HousekeepingController, MaintenanceController, GuestRequestController, LostFoundController, ReviewController,
-    KitchenController,
+    KitchenController, RestaurantController,
     InventoryController, PurchasingController, StockRequestController,
     UserController, AlertController, RosterController, RoleController, SettingsController, AuditController, ReportController, ExportController,
 ]

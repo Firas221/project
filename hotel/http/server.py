@@ -22,6 +22,7 @@ PAGES = {
     "/finance": "finance.html",
     "/maintenance": "maintenance.html",
     "/store": "store.html",
+    "/restaurant": "restaurant.html",
     "/account": "account.html",
     "/privacy": "privacy.html",
 }

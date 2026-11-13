@@ -169,7 +169,7 @@ test('the administrator creates a storekeeper and sees every role in the permiss
     assert.ok(head.includes(role), `the matrix has a column for ${role}`);
   }
   assert.match(await page.locator('table.matrix').innerText(), /Close the business day \(night audit\)/);
-  assert.equal(await page.locator('[data-save]').count(), 8, 'eight roles can be tuned');
+  assert.equal(await page.locator('[data-save]').count(), 9, 'nine roles can be tuned');
   assert.deepEqual(problems, []);
   await context.close();
 

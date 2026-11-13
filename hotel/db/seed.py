@@ -67,6 +67,7 @@ DEMO_PASSWORDS = {
     "supervisor": "SuperPass123",
     "tech": "TechPass123",
     "store": "StorePass123",
+    "waiter": "WaiterPass123",
     "guest": "GuestPass123",
 }
 
@@ -130,6 +131,7 @@ class DemoData:
             ("supervisor", "Mona Saleh", Role.SUPERVISOR, "mona.saleh@nileharbor.example"),
             ("tech", "Tarek Aziz", Role.MAINTENANCE, "tarek.aziz@nileharbor.example"),
             ("store", "Youssef Nabil", Role.STOREKEEPER, "youssef.nabil@nileharbor.example"),
+            ("waiter", "Salma Fathy", Role.WAITER, "salma.fathy@nileharbor.example"),
         ]
         ids = {}
         for username, name, role, email in people:
@@ -333,6 +335,9 @@ class DemoData:
                               adjust_pct=25, min_nights=2)
         self.r.seasons.insert(name="Summer low season", start_date=f"{year}-07-01", end_date=f"{year}-08-31",
                               adjust_pct=-15, min_nights=1)
+        for n in range(1, 9):
+            self.r.restaurant_tables.insert(name=f"Table {n}", seats=2 if n <= 2 else 4 if n <= 6 else 8,
+                                            area="Terrace" if n > 6 else "Dining room")
         self.r.rate_plans.insert(name="Bed & breakfast", name_ar="إقامة مع إفطار", meal_plan="breakfast",
                                  description="Breakfast buffet for every guest", per_adult=350, per_child=175, position=1)
         self.r.rate_plans.insert(name="Non-refundable saver", name_ar="سعر موفّر غير قابل للاسترداد", adjust_pct=-10,

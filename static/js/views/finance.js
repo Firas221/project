@@ -17,7 +17,8 @@ export async function cashierView(el, { ctx, alive }) {
       ${cur ? `<dl class="kv"><dt>Opened</dt><dd>${fmtDateTime(cur.opened_at)}</dd><dt>Opening float</dt><dd>${money(cur.opening_float)}</dd>
         <dt>Cash taken</dt><dd>${money(cur.cash_taken)}</dd>
         ${cur.foreign_cash_taken ? `<dt>Foreign cash taken</dt><dd id="foreign-cash">${cur.foreign_cash_taken.toFixed(2)} ${esc(cur.foreign_currency)} <span class="small muted">(kept apart from the drawer count)</span></dd>` : ''}<dt>All payments</dt><dd>${money(cur.total_taken)} (${cur.payment_count})</dd>
-        <dt>Expected in drawer</dt><dd><b>${money(cur.opening_float + cur.cash_taken)}</b></dd></dl><button class="btn primary" id="close" style="margin-top:12px">Close shift &amp; count cash</button>`
+        ${cur.restaurant_taken ? `<dt>Restaurant cash</dt><dd id="restaurant-cash">${money(cur.restaurant_cash)} <span class="small muted">of ${money(cur.restaurant_taken)} taken</span></dd>` : ''}
+        <dt>Expected in drawer</dt><dd><b>${money(cur.opening_float + cur.cash_taken + cur.restaurant_cash)}</b></dd></dl><button class="btn primary" id="close" style="margin-top:12px">Close shift &amp; count cash</button>`
         : '<button class="btn primary" id="open">Open shift</button>'}</div></div>
       <div class="card"><div class="card-head"><h2>Recent shifts</h2></div>${table(['Cashier', 'Opened', 'Closed', ['Expected', 'num'], ['Counted', 'num'], ['Variance', 'num']],
         data.shifts.map((s) => `<tr class="clickable" data-shift="${s.id}"><td>${esc(s.user_name)}</td><td class="small">${fmtDateTime(s.opened_at)}</td><td class="small">${s.closed_at ? fmtDateTime(s.closed_at) : badge('in_progress', 'Open')}</td>
@@ -109,7 +110,8 @@ export async function reportsView(el, { params, ctx, alive }) {
     <div class="tiles">${tile('Occupancy', T.occupancy + '%', `${T.room_nights} room-nights`)}${tile('Room revenue', money(T.room_revenue), 'excl. service & VAT')}
       ${tile('ADR', money(T.adr), 'average daily rate')}${tile('RevPAR', money(T.revpar), 'per available room')}${tile('Extras', money(T.extras_revenue), 'F&B, minibar, services')}
       ${tile('Payments', money(T.payments), 'collected')}${tile('VAT invoiced', money(T.vat), `on ${money(T.invoiced_total)} invoiced`)}
-      ${tile('Guest rating', r.reviews.average ? r.reviews.average + ' / 5' : '—', `${r.reviews.count} reviews`)}</div>
+      ${tile('Guest rating', r.reviews.average ? r.reviews.average + ' / 5' : '—', `${r.reviews.count} reviews`)}
+      ${r.restaurant.checks || r.restaurant.charged_to_rooms ? tile('Restaurant', money(r.restaurant.total), `${r.restaurant.checks} checks · ${r.restaurant.covers} guests`) : ''}</div>
     <div class="card" style="margin-bottom:16px"><div class="card-head"><h2 class="grow">Daily occupancy</h2><span class="small muted">% of rooms sold each night · hover for details</span></div>
       <div class="card-body"><div class="chart" id="chart"></div></div></div>
     <div class="grid g3" style="margin-bottom:16px">
@@ -182,11 +184,15 @@ export async function taxView(el, { params, alive }) {
   el.innerHTML = `<div class="page-head"><div class="grow"><h1>VAT &amp; service charge report</h1><div class="sub">Invoices issued ${fmtDate(r.from)} – ${fmtDate(r.to)}, for the monthly VAT return.</div></div>
       <div class="btn-row"><input type="date" id="from" value="${r.from}" style="width:auto"><input type="date" id="to" value="${r.to}" style="width:auto">
       <a class="btn" href="/api/export/tax?${qs({ from: r.from, to: r.to })}">Export CSV</a></div></div>
-    <div class="tiles">${tile('Taxable subtotal', money(r.totals.subtotal), `${r.invoices.length} invoices`)}${tile('Service charge', money(r.totals.service_charge))}
-      ${tile('Output VAT', money(r.totals.vat))}${tile('Invoiced total', money(r.totals.total))}</div>
+    <div class="tiles">${tile('Taxable subtotal', money(r.grand_totals.subtotal), `${r.invoices.length} invoices + ${r.restaurant.checks} receipts`)}${tile('Service charge', money(r.grand_totals.service_charge))}
+      ${tile('Output VAT', money(r.grand_totals.vat))}${tile('Invoiced total', money(r.grand_totals.total))}</div>
     <div class="card">${table(['Invoice', 'Date', 'Bill to', 'Tax no.', ['Subtotal', 'num'], ['Service', 'num'], ['VAT', 'num'], ['Total', 'num']], r.invoices.map((i) => `
       <tr class="clickable" data-href="#/invoices/${i.id}"><td>${esc(i.number)}</td><td class="small">${fmtDate(i.issued_at)}</td><td>${esc(i.bill_to)}</td><td>${esc(i.bill_to_tax_no)}</td>
-      <td class="num">${money(i.subtotal)}</td><td class="num">${money(i.service_charge)}</td><td class="num">${money(i.vat)}</td><td class="num">${money(i.total)}</td></tr>`).join(''), 'No invoices in this period')}</div>`;
+      <td class="num">${money(i.subtotal)}</td><td class="num">${money(i.service_charge)}</td><td class="num">${money(i.vat)}</td><td class="num">${money(i.total)}</td></tr>`).join(''), 'No invoices in this period')}</div>
+    <div class="card" style="margin-top:16px"><div class="card-head"><h2 class="grow">Restaurant receipts</h2><span class="small muted">Checks charged to rooms are on the room invoices above</span></div>
+      ${table(['Receipt', 'Date', 'Table', ['Subtotal', 'num'], ['Service', 'num'], ['VAT', 'num'], ['Total', 'num']], r.restaurant.receipts.map((x) => `
+      <tr><td>${esc(x.receipt_number)}</td><td class="small">${fmtDate(x.closed_at)}</td><td>${esc(x.table_name)}</td><td class="num">${money(x.subtotal)}</td>
+      <td class="num">${money(x.service_charge)}</td><td class="num">${money(x.vat)}</td><td class="num">${money(x.total)}</td></tr>`).join(''), 'No restaurant receipts in this period')}</div>`;
   bindRowLinks(el);
   const go = () => { location.hash = '#/tax?' + qs({ from: $('#from').value, to: $('#to').value }); };
   $('#from', el).addEventListener('change', go);

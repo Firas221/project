@@ -9,7 +9,7 @@ from .guests import GuestDocumentRepository, GuestRepository, LoyaltyRepository
 from .identity import AuditRepository, RoleRepository, SessionRepository, SettingsRepository, UserRepository
 from .inventory import (ItemRepository, MovementRepository, PurchaseOrderRepository, StockRequestRepository,
                         SupplierRepository)
-from .kitchen import MenuRepository, OrderRepository
+from .kitchen import CheckRepository, MenuRepository, OrderRepository, RestaurantTableRepository
 from .operations import (AlertRepository, AttendanceRepository, GuestRequestRepository, HousekeepingTaskRepository, LostFoundRepository,
                          MaintenanceRepository, ReviewRepository, RosterRepository)
 from .reservations import (ChargeRepository, PaymentRepository, ReservationRepository, StopSellRepository,
@@ -51,6 +51,8 @@ class Repositories:
     # food & beverage
     menu = cached_property(lambda self: MenuRepository(self.conn))
     orders = cached_property(lambda self: OrderRepository(self.conn))
+    restaurant_tables = cached_property(lambda self: RestaurantTableRepository(self.conn))
+    checks = cached_property(lambda self: CheckRepository(self.conn))
     # operations
     housekeeping = cached_property(lambda self: HousekeepingTaskRepository(self.conn))
     maintenance = cached_property(lambda self: MaintenanceRepository(self.conn))

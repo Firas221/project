@@ -312,20 +312,22 @@ class WaitlistController(Controller):
 
 
 class CashierController(Controller):
-    @get("/cashier/shifts", perm=Perm.BILLING_PAYMENT)
+    @get("/cashier/shifts")
     def shifts(self):
+        self.svc(CashierService)._may_hold_a_till()
         return {"current": self.svc(CashierService).current(), "shifts": self.svc(CashierService).list()}
 
-    @post("/cashier/open", perm=Perm.BILLING_PAYMENT)
+    @post("/cashier/open")
     def open(self):
         return self.svc(CashierService).open(self.body.get("opening_float", 0))
 
-    @post("/cashier/close", perm=Perm.BILLING_PAYMENT)
+    @post("/cashier/close")
     def close(self):
         return self.svc(CashierService).close(self.body.get("counted_cash"), self.body.get("notes", ""))
 
-    @get("/cashier/shifts/{shift_id}", perm=Perm.BILLING_PAYMENT)
+    @get("/cashier/shifts/{shift_id}")
     def detail(self, shift_id):
+        self.svc(CashierService)._may_hold_a_till()
         return self.svc(CashierService).detail(shift_id)
 
 
